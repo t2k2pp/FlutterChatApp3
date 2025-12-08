@@ -1,0 +1,236 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart';
+import '../models/conversation.dart';
+import '../models/message.dart';
+import '../services/llm_service.dart';
+import '../services/storage_service.dart';
+
+class ChatProvider extends ChangeNotifier {
+  final StorageService _storage = StorageService();
+  LlmService _llmService = LlmService();
+  
+  List<Conversation> _conversations = [];
+  Conversation? _currentConversation;
+  bool _isLoading = false;
+  bool _isConnected = false;
+  String? _error;
+  String _systemPrompt = '';
+  String _apiUrl = 'http://192.168.1.24:11437/v1';
+  StreamSubscription<String>? _streamSubscription;
+
+  // Getters
+  List<Conversation> get conversations => _conversations;
+  Conversation? get currentConversation => _currentConversation;
+  bool get isLoading => _isLoading;
+  bool get isConnected => _isConnected;
+  String? get error => _error;
+  String get systemPrompt => _systemPrompt;
+  String get apiUrl => _apiUrl;
+
+  ChatProvider() {
+    _initialize();
+  }
+
+  Future<void> _initialize() async {
+    await _loadSettings();
+    await _loadConversations();
+    await testConnection();
+    
+    // 会話がなければ新規作成
+    if (_conversations.isEmpty) {
+      createNewConversation();
+    } else {
+      _currentConversation = _conversations.first;
+    }
+    notifyListeners();
+  }
+
+  Future<void> _loadSettings() async {
+    final settings = await _storage.loadSettings();
+    _apiUrl = settings['apiUrl'] ?? 'http://192.168.1.24:11437/v1';
+    _systemPrompt = settings['systemPrompt'] ?? '';
+    _llmService = LlmService(baseUrl: _apiUrl);
+  }
+
+  Future<void> _loadConversations() async {
+    _conversations = await _storage.loadConversations();
+    // 更新日時で降順ソート
+    _conversations.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+  }
+
+  Future<void> _saveConversations() async {
+    await _storage.saveConversations(_conversations);
+  }
+
+  Future<void> testConnection() async {
+    _isConnected = await _llmService.testConnection();
+    notifyListeners();
+  }
+
+  void createNewConversation() {
+    final conversation = Conversation();
+    _conversations.insert(0, conversation);
+    _currentConversation = conversation;
+    _saveConversations();
+    notifyListeners();
+  }
+
+  void selectConversation(String id) {
+    _currentConversation = _conversations.firstWhere((c) => c.id == id);
+    notifyListeners();
+  }
+
+  void deleteConversation(String id) {
+    _conversations.removeWhere((c) => c.id == id);
+    if (_currentConversation?.id == id) {
+      _currentConversation = _conversations.isNotEmpty ? _conversations.first : null;
+      if (_currentConversation == null) {
+        createNewConversation();
+      }
+    }
+    _saveConversations();
+    notifyListeners();
+  }
+
+  Future<void> sendMessage(String content) async {
+    if (content.trim().isEmpty || _currentConversation == null) return;
+
+    _error = null;
+    _isLoading = true;
+    notifyListeners();
+
+    // ユーザーメッセージを追加
+    final userMessage = Message(
+      role: MessageRole.user,
+      content: content.trim(),
+    );
+
+    final messages = [..._currentConversation!.messages, userMessage];
+    
+    // タイトルの自動生成（最初のメッセージの場合）
+    String title = _currentConversation!.title;
+    if (_currentConversation!.messages.isEmpty) {
+      title = content.length > 30 ? '${content.substring(0, 30)}...' : content;
+    }
+
+    _currentConversation = _currentConversation!.copyWith(
+      title: title,
+      messages: messages,
+      updatedAt: DateTime.now(),
+    );
+    _updateConversationInList();
+    notifyListeners();
+
+    // AIの応答用メッセージを追加
+    final assistantMessage = Message(
+      role: MessageRole.assistant,
+      content: '',
+      isStreaming: true,
+    );
+
+    _currentConversation = _currentConversation!.copyWith(
+      messages: [...messages, assistantMessage],
+    );
+    _updateConversationInList();
+    notifyListeners();
+
+    try {
+      // システムプロンプトを含むメッセージリストを作成
+      List<Message> apiMessages = [];
+      if (_systemPrompt.isNotEmpty) {
+        apiMessages.add(Message(
+          role: MessageRole.system,
+          content: _systemPrompt,
+        ));
+      }
+      apiMessages.addAll(messages);
+
+      // ストリーミングで応答を取得
+      String fullResponse = '';
+      await for (final chunk in _llmService.streamChatCompletion(apiMessages)) {
+        fullResponse += chunk;
+        
+        final updatedAssistantMessage = assistantMessage.copyWith(
+          content: fullResponse,
+          isStreaming: true,
+        );
+
+        _currentConversation = _currentConversation!.copyWith(
+          messages: [...messages, updatedAssistantMessage],
+        );
+        _updateConversationInList();
+        notifyListeners();
+      }
+
+      // ストリーミング完了
+      final finalAssistantMessage = assistantMessage.copyWith(
+        content: fullResponse,
+        isStreaming: false,
+      );
+
+      _currentConversation = _currentConversation!.copyWith(
+        messages: [...messages, finalAssistantMessage],
+        updatedAt: DateTime.now(),
+      );
+      _updateConversationInList();
+      await _saveConversations();
+
+    } catch (e) {
+      _error = e.toString();
+      // エラー時はAIメッセージを削除
+      _currentConversation = _currentConversation!.copyWith(
+        messages: messages,
+      );
+      _updateConversationInList();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  void _updateConversationInList() {
+    final index = _conversations.indexWhere((c) => c.id == _currentConversation!.id);
+    if (index != -1) {
+      _conversations[index] = _currentConversation!;
+    }
+  }
+
+  void stopGeneration() {
+    _streamSubscription?.cancel();
+    _isLoading = false;
+    notifyListeners();
+  }
+
+  Future<void> updateSettings({
+    String? apiUrl,
+    String? systemPrompt,
+  }) async {
+    if (apiUrl != null) {
+      _apiUrl = apiUrl;
+      _llmService = LlmService(baseUrl: apiUrl);
+    }
+    if (systemPrompt != null) {
+      _systemPrompt = systemPrompt;
+    }
+    
+    await _storage.saveSettings({
+      'apiUrl': _apiUrl,
+      'systemPrompt': _systemPrompt,
+    });
+    
+    await testConnection();
+    notifyListeners();
+  }
+
+  void clearError() {
+    _error = null;
+    notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _streamSubscription?.cancel();
+    _llmService.dispose();
+    super.dispose();
+  }
+}
