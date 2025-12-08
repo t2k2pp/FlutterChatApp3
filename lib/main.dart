@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'providers/chat_provider.dart';
+import 'providers/project_provider.dart';
 import 'screens/chat_screen.dart';
 import 'theme/app_theme.dart';
 
@@ -14,8 +15,11 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => ChatProvider(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ProjectProvider()),
+        ChangeNotifierProvider(create: (_) => ChatProvider()),
+      ],
       child: MaterialApp(
         title: 'AI Chat - Llama.cpp',
         debugShowCheckedModeBanner: false,

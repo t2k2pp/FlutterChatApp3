@@ -4,6 +4,7 @@ import 'message.dart';
 class Conversation {
   final String id;
   final String title;
+  final String? projectId;  // プロジェクトとの関連付け
   final List<Message> messages;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -11,6 +12,7 @@ class Conversation {
   Conversation({
     String? id,
     String? title,
+    this.projectId,
     List<Message>? messages,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -23,6 +25,7 @@ class Conversation {
   Conversation copyWith({
     String? id,
     String? title,
+    String? projectId,
     List<Message>? messages,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -30,6 +33,7 @@ class Conversation {
     return Conversation(
       id: id ?? this.id,
       title: title ?? this.title,
+      projectId: projectId ?? this.projectId,
       messages: messages ?? this.messages,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -40,6 +44,7 @@ class Conversation {
     return {
       'id': id,
       'title': title,
+      'projectId': projectId,
       'messages': messages.map((m) => m.toJson()).toList(),
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
@@ -50,6 +55,7 @@ class Conversation {
     return Conversation(
       id: json['id'],
       title: json['title'],
+      projectId: json['projectId'],
       messages: (json['messages'] as List)
           .map((m) => Message.fromJson(m as Map<String, dynamic>))
           .toList(),

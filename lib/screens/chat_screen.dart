@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../providers/chat_provider.dart';
+import '../../providers/project_provider.dart';
+import '../../services/export_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/chat_input.dart';
 import '../../widgets/conversation_drawer.dart';
 import '../../widgets/message_bubble.dart';
+import 'project_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -42,6 +46,7 @@ class _ChatScreenState extends State<ChatScreen> {
       appBar: _buildAppBar(),
       body: Column(
         children: [
+          _buildProjectBar(),
           Expanded(
             child: _buildMessageList(),
           ),
@@ -49,6 +54,80 @@ class _ChatScreenState extends State<ChatScreen> {
           _buildInput(),
         ],
       ),
+    );
+  }
+
+  Widget _buildProjectBar() {
+    return Consumer<ProjectProvider>(
+      builder: (context, provider, child) {
+        final project = provider.currentProject;
+        
+        return Material(
+          color: AppTheme.darkSurface,
+          child: InkWell(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ProjectScreen()),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: AppTheme.darkBorder),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: AppTheme.darkCard,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      project?.icon ?? '💬',
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          project?.name ?? '一般',
+                          style: const TextStyle(
+                            color: AppTheme.textPrimary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        if (project?.description.isNotEmpty == true)
+                          Text(
+                            project!.description,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: AppTheme.textMuted,
+                              fontSize: 11,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    color: AppTheme.textMuted,
+                    size: 20,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -87,7 +166,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   boxShadow: [
                     BoxShadow(
                       color: (provider.isConnected ? Colors.green : Colors.red)
-                          .withOpacity(0.5),
+                          .withValues(alpha: 0.5),
                       blurRadius: 4,
                     ),
                   ],
@@ -110,6 +189,28 @@ class _ChatScreenState extends State<ChatScreen> {
         },
       ),
       actions: [
+        // エクスポートボタン
+        Consumer<ChatProvider>(
+          builder: (context, provider, child) {
+            if (provider.currentConversation == null || 
+                provider.currentConversation!.messages.isEmpty) {
+              return const SizedBox.shrink();
+            }
+            return IconButton(
+              icon: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppTheme.darkCard,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppTheme.darkBorder),
+                ),
+                child: const Icon(Icons.file_download_outlined, size: 18),
+              ),
+              onPressed: () => _exportCurrentConversation(context),
+            );
+          },
+        ),
+        // 新規会話ボタン
         Consumer<ChatProvider>(
           builder: (context, provider, child) {
             return IconButton(
@@ -133,6 +234,29 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
         const SizedBox(width: 8),
       ],
+    );
+  }
+
+  void _exportCurrentConversation(BuildContext context) {
+    final provider = context.read<ChatProvider>();
+    if (provider.currentConversation == null) return;
+    
+    final markdown = ExportService.exportToMarkdown(provider.currentConversation!);
+    Clipboard.setData(ClipboardData(text: markdown));
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.white, size: 20),
+            SizedBox(width: 12),
+            Text('会話をクリップボードにコピーしました'),
+          ],
+        ),
+        backgroundColor: AppTheme.primaryColor,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
     );
   }
 
@@ -175,7 +299,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
-                    color: AppTheme.primaryColor.withOpacity(0.3),
+                    color: AppTheme.primaryColor.withValues(alpha: 0.3),
                     blurRadius: 24,
                     offset: const Offset(0, 8),
                   ),
@@ -255,7 +379,7 @@ class _ChatScreenState extends State<ChatScreen> {
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-            color: Colors.red.shade900.withOpacity(0.3),
+            color: Colors.red.shade900.withValues(alpha: 0.3),
             border: Border(
               top: BorderSide(color: Colors.red.shade700),
             ),
@@ -295,15 +419,17 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildInput() {
-    return Consumer<ChatProvider>(
-      builder: (context, provider, child) {
+    return Consumer2<ChatProvider, ProjectProvider>(
+      builder: (context, chatProvider, projectProvider, child) {
         return ChatInput(
-          isLoading: provider.isLoading,
+          isLoading: chatProvider.isLoading,
           onSend: (text) {
-            provider.sendMessage(text);
+            // プロジェクトのシステムプロンプトを適用
+            final systemPrompt = projectProvider.currentSystemPrompt;
+            chatProvider.sendMessage(text, projectSystemPrompt: systemPrompt);
           },
           onStop: () {
-            provider.stopGeneration();
+            chatProvider.stopGeneration();
           },
         );
       },

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../providers/chat_provider.dart';
+import '../../services/export_service.dart';
 import '../../theme/app_theme.dart';
 
 class ConversationDrawer extends StatelessWidget {
@@ -32,7 +34,7 @@ class ConversationDrawer extends StatelessWidget {
         right: 16,
         bottom: 16,
       ),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         gradient: AppTheme.primaryGradient,
       ),
       child: Row(
@@ -40,7 +42,7 @@ class ConversationDrawer extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(12),
             ),
             child: const Icon(
@@ -82,7 +84,7 @@ class ConversationDrawer extends StatelessWidget {
             icon: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
+                color: Colors.white.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: const Icon(
@@ -169,12 +171,12 @@ class ConversationDrawer extends StatelessWidget {
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: isSelected
-                  ? AppTheme.primaryColor.withOpacity(0.15)
+                  ? AppTheme.primaryColor.withValues(alpha: 0.15)
                   : Colors.transparent,
               borderRadius: BorderRadius.circular(12),
               border: isSelected
                   ? Border.all(
-                      color: AppTheme.primaryColor.withOpacity(0.3),
+                      color: AppTheme.primaryColor.withValues(alpha: 0.3),
                       width: 1,
                     )
                   : null,
@@ -185,7 +187,7 @@ class ConversationDrawer extends StatelessWidget {
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? AppTheme.primaryColor.withOpacity(0.2)
+                        ? AppTheme.primaryColor.withValues(alpha: 0.2)
                         : AppTheme.darkCard,
                     borderRadius: BorderRadius.circular(10),
                   ),
@@ -221,20 +223,92 @@ class ConversationDrawer extends StatelessWidget {
                     ],
                   ),
                 ),
-                IconButton(
+                PopupMenuButton<String>(
                   icon: Icon(
-                    Icons.delete_outline_rounded,
+                    Icons.more_vert_rounded,
                     color: AppTheme.textMuted,
                     size: 18,
                   ),
-                  onPressed: () {
-                    _showDeleteConfirmation(context, id, title);
+                  color: AppTheme.darkCard,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  itemBuilder: (context) => [
+                    _buildPopupMenuItem(
+                      'export',
+                      Icons.file_download_outlined,
+                      'エクスポート',
+                    ),
+                    _buildPopupMenuItem(
+                      'delete',
+                      Icons.delete_outline_rounded,
+                      '削除',
+                      isDestructive: true,
+                    ),
+                  ],
+                  onSelected: (value) {
+                    if (value == 'delete') {
+                      _showDeleteConfirmation(context, id, title);
+                    } else if (value == 'export') {
+                      _exportConversation(context, id);
+                    }
                   },
                 ),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  PopupMenuItem<String> _buildPopupMenuItem(
+    String value,
+    IconData icon,
+    String label, {
+    bool isDestructive = false,
+  }) {
+    return PopupMenuItem(
+      value: value,
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            size: 18,
+            color: isDestructive ? Colors.red.shade400 : AppTheme.textSecondary,
+          ),
+          const SizedBox(width: 12),
+          Text(
+            label,
+            style: TextStyle(
+              color: isDestructive ? Colors.red.shade400 : AppTheme.textPrimary,
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _exportConversation(BuildContext context, String id) {
+    final provider = context.read<ChatProvider>();
+    final conversation = provider.conversations.firstWhere((c) => c.id == id);
+    final markdown = ExportService.exportToMarkdown(conversation);
+    
+    Clipboard.setData(ClipboardData(text: markdown));
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.white, size: 20),
+            SizedBox(width: 12),
+            Text('会話をクリップボードにコピーしました'),
+          ],
+        ),
+        backgroundColor: AppTheme.primaryColor,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
   }
@@ -305,48 +379,110 @@ class ConversationDrawer extends StatelessWidget {
               top: BorderSide(color: AppTheme.darkBorder),
             ),
           ),
-          child: Row(
+          child: Column(
             children: [
-              Container(
-                width: 10,
-                height: 10,
-                decoration: BoxDecoration(
-                  color: provider.isConnected ? Colors.green : Colors.red,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: (provider.isConnected ? Colors.green : Colors.red)
-                          .withOpacity(0.5),
-                      blurRadius: 6,
+              // エクスポートボタン
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => _showExportAllDialog(context),
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: AppTheme.darkCard,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppTheme.darkBorder),
                     ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  provider.isConnected ? 'サーバー接続中' : 'オフライン',
-                  style: TextStyle(
-                    color: AppTheme.textSecondary,
-                    fontSize: 13,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.file_download_outlined,
+                          color: AppTheme.textSecondary,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '全会話をエクスポート',
+                          style: TextStyle(
+                            color: AppTheme.textSecondary,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
-              IconButton(
-                icon: const Icon(
-                  Icons.settings_outlined,
-                  color: AppTheme.textSecondary,
-                  size: 22,
-                ),
-                onPressed: () {
-                  Navigator.pop(context);
-                  _showSettingsDialog(context);
-                },
+              const SizedBox(height: 12),
+              // 接続状態と設定
+              Row(
+                children: [
+                  Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: provider.isConnected ? Colors.green : Colors.red,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: (provider.isConnected ? Colors.green : Colors.red)
+                              .withValues(alpha: 0.5),
+                          blurRadius: 6,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      provider.isConnected ? 'サーバー接続中' : 'オフライン',
+                      style: TextStyle(
+                        color: AppTheme.textSecondary,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(
+                      Icons.settings_outlined,
+                      color: AppTheme.textSecondary,
+                      size: 22,
+                    ),
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _showSettingsDialog(context);
+                    },
+                  ),
+                ],
               ),
             ],
           ),
         );
       },
+    );
+  }
+
+  void _showExportAllDialog(BuildContext context) {
+    final provider = context.read<ChatProvider>();
+    final markdown = ExportService.exportMultipleToMarkdown(provider.conversations);
+    
+    Clipboard.setData(ClipboardData(text: markdown));
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle, color: Colors.white, size: 20),
+            const SizedBox(width: 12),
+            Text('${provider.conversations.length}件の会話をコピーしました'),
+          ],
+        ),
+        backgroundColor: AppTheme.primaryColor,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
     );
   }
 

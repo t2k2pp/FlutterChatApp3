@@ -92,7 +92,7 @@ class ChatProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> sendMessage(String content) async {
+  Future<void> sendMessage(String content, {String? projectSystemPrompt}) async {
     if (content.trim().isEmpty || _currentConversation == null) return;
 
     _error = null;
@@ -136,11 +136,16 @@ class ChatProvider extends ChangeNotifier {
 
     try {
       // システムプロンプトを含むメッセージリストを作成
+      // プロジェクトのシステムプロンプトを優先、なければグローバル設定を使用
       List<Message> apiMessages = [];
-      if (_systemPrompt.isNotEmpty) {
+      final effectiveSystemPrompt = projectSystemPrompt?.isNotEmpty == true 
+          ? projectSystemPrompt! 
+          : _systemPrompt;
+      
+      if (effectiveSystemPrompt.isNotEmpty) {
         apiMessages.add(Message(
           role: MessageRole.system,
-          content: _systemPrompt,
+          content: effectiveSystemPrompt,
         ));
       }
       apiMessages.addAll(messages);
