@@ -13,6 +13,7 @@
 | **Claude** | Anthropic API |
 | **OpenAI** | GPT-4 / GPT-3.5 |
 | **Gemini** | Google AI |
+| **Azure OpenAI** | Azure OpenAI Service |
 
 ### 📁 プロジェクト機能 (Gems風)
 カスタムAIペルソナを作成。プロジェクトごとにシステムプロンプトを設定し、特化型AIを簡単に切り替え。

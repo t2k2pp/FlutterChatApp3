@@ -2,10 +2,11 @@ import '../models/message.dart';
 
 /// LLMプロバイダーの種類
 enum LlmProviderType {
-  llamaCpp,  // ローカルLlama.cpp
-  claude,    // Anthropic Claude
-  openai,    // OpenAI ChatGPT
-  gemini,    // Google Gemini
+  llamaCpp,      // ローカルLlama.cpp
+  claude,        // Anthropic Claude
+  openai,        // OpenAI ChatGPT
+  gemini,        // Google Gemini
+  azureOpenai,   // Azure OpenAI Service
 }
 
 /// LLMプロバイダーの設定
@@ -15,6 +16,8 @@ class LlmProviderConfig {
   final String baseUrl;
   final String? apiKey;
   final String? model;
+  final String? deploymentName;  // Azure用デプロイメント名
+  final String? apiVersion;      // Azure用APIバージョン
   final Map<String, dynamic>? options;
 
   const LlmProviderConfig({
@@ -23,6 +26,8 @@ class LlmProviderConfig {
     required this.baseUrl,
     this.apiKey,
     this.model,
+    this.deploymentName,
+    this.apiVersion,
     this.options,
   });
 
@@ -32,6 +37,8 @@ class LlmProviderConfig {
     String? baseUrl,
     String? apiKey,
     String? model,
+    String? deploymentName,
+    String? apiVersion,
     Map<String, dynamic>? options,
   }) {
     return LlmProviderConfig(
@@ -40,6 +47,8 @@ class LlmProviderConfig {
       baseUrl: baseUrl ?? this.baseUrl,
       apiKey: apiKey ?? this.apiKey,
       model: model ?? this.model,
+      deploymentName: deploymentName ?? this.deploymentName,
+      apiVersion: apiVersion ?? this.apiVersion,
       options: options ?? this.options,
     );
   }
@@ -50,6 +59,8 @@ class LlmProviderConfig {
     'baseUrl': baseUrl,
     'apiKey': apiKey,
     'model': model,
+    'deploymentName': deploymentName,
+    'apiVersion': apiVersion,
     'options': options,
   };
 
@@ -63,6 +74,8 @@ class LlmProviderConfig {
       baseUrl: json['baseUrl'] ?? '',
       apiKey: json['apiKey'],
       model: json['model'],
+      deploymentName: json['deploymentName'],
+      apiVersion: json['apiVersion'],
       options: json['options'] as Map<String, dynamic>?,
     );
   }
@@ -93,6 +106,14 @@ class LlmProviderConfig {
     name: 'Gemini',
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
     model: 'gemini-1.5-flash',
+  );
+
+  static LlmProviderConfig get defaultAzureOpenAI => const LlmProviderConfig(
+    type: LlmProviderType.azureOpenai,
+    name: 'Azure OpenAI',
+    baseUrl: 'https://your-resource.openai.azure.com',
+    deploymentName: 'gpt-4o',
+    apiVersion: '2024-02-15-preview',
   );
 }
 

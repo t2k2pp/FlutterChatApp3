@@ -4,6 +4,7 @@ import '../services/providers/llamacpp_provider.dart';
 import '../services/providers/claude_provider.dart';
 import '../services/providers/openai_provider.dart';
 import '../services/providers/gemini_provider.dart';
+import '../services/providers/azure_openai_provider.dart';
 import '../services/storage_service.dart';
 
 class LlmProviderManager extends ChangeNotifier {
@@ -96,6 +97,8 @@ class LlmProviderManager extends ChangeNotifier {
         return OpenAIProvider(config: config);
       case LlmProviderType.gemini:
         return GeminiProvider(config: config);
+      case LlmProviderType.azureOpenai:
+        return AzureOpenAIProvider(config: config);
     }
   }
 
@@ -167,6 +170,9 @@ class LlmProviderManager extends ChangeNotifier {
         break;
       case LlmProviderType.gemini:
         config = LlmProviderConfig.defaultGemini;
+        break;
+      case LlmProviderType.azureOpenai:
+        config = LlmProviderConfig.defaultAzureOpenAI;
         break;
     }
     await addProvider(config);

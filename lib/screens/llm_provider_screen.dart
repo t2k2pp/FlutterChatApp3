@@ -32,6 +32,7 @@ class LlmProviderScreen extends StatelessWidget {
               _buildMenuItem(LlmProviderType.claude, 'Claude (Anthropic)', Icons.psychology),
               _buildMenuItem(LlmProviderType.openai, 'ChatGPT (OpenAI)', Icons.chat),
               _buildMenuItem(LlmProviderType.gemini, 'Gemini (Google)', Icons.auto_awesome),
+              _buildMenuItem(LlmProviderType.azureOpenai, 'Azure OpenAI', Icons.cloud),
             ],
           ),
           const SizedBox(width: 8),
@@ -257,6 +258,9 @@ class LlmProviderScreen extends StatelessWidget {
     final urlController = TextEditingController(text: config.baseUrl);
     final keyController = TextEditingController(text: config.apiKey ?? '');
     final modelController = TextEditingController(text: config.model ?? '');
+    final deploymentController = TextEditingController(text: config.deploymentName ?? '');
+    final apiVersionController = TextEditingController(text: config.apiVersion ?? '2024-02-15-preview');
+    final isAzure = config.type == LlmProviderType.azureOpenai;
 
     showDialog(
       context: context,
@@ -270,11 +274,16 @@ class LlmProviderScreen extends StatelessWidget {
             children: [
               _buildTextField(nameController, '表示名', Icons.label),
               const SizedBox(height: 16),
-              _buildTextField(urlController, 'API URL', Icons.link),
+              _buildTextField(urlController, isAzure ? 'リソースURL' : 'API URL', Icons.link),
               const SizedBox(height: 16),
               _buildTextField(keyController, 'APIキー', Icons.key, obscure: true),
               const SizedBox(height: 16),
-              _buildTextField(modelController, 'モデル', Icons.smart_toy),
+              if (isAzure) ...[
+                _buildTextField(deploymentController, 'デプロイメント名', Icons.rocket_launch),
+                const SizedBox(height: 16),
+                _buildTextField(apiVersionController, 'APIバージョン', Icons.history),
+              ] else
+                _buildTextField(modelController, 'モデル', Icons.smart_toy),
             ],
           ),
         ),
@@ -292,6 +301,8 @@ class LlmProviderScreen extends StatelessWidget {
                   baseUrl: urlController.text.trim(),
                   apiKey: keyController.text.trim().isEmpty ? null : keyController.text.trim(),
                   model: modelController.text.trim().isEmpty ? null : modelController.text.trim(),
+                  deploymentName: deploymentController.text.trim().isEmpty ? null : deploymentController.text.trim(),
+                  apiVersion: apiVersionController.text.trim().isEmpty ? null : apiVersionController.text.trim(),
                 ),
               );
               Navigator.pop(context);
@@ -337,6 +348,8 @@ class LlmProviderScreen extends StatelessWidget {
         return const Color(0xFF10A37F);
       case LlmProviderType.gemini:
         return const Color(0xFF4285F4);
+      case LlmProviderType.azureOpenai:
+        return const Color(0xFF0078D4);  // Azure blue
     }
   }
 
@@ -350,6 +363,8 @@ class LlmProviderScreen extends StatelessWidget {
         return Icons.chat;
       case LlmProviderType.gemini:
         return Icons.auto_awesome;
+      case LlmProviderType.azureOpenai:
+        return Icons.cloud;
     }
   }
 }
