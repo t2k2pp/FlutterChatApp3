@@ -3,7 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../providers/chat_provider.dart';
 import '../../providers/project_provider.dart';
+import '../../providers/search_provider.dart';
 import '../../services/export_service.dart';
+import '../../services/searxng_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/chat_input.dart';
 import '../../widgets/conversation_drawer.dart';
@@ -20,6 +22,7 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   final ScrollController _scrollController = ScrollController();
+  bool _isSearchEnabled = false;
 
   @override
   void dispose() {
@@ -420,17 +423,26 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildInput() {
-    return Consumer2<ChatProvider, ProjectProvider>(
-      builder: (context, chatProvider, projectProvider, child) {
+    return Consumer3<ChatProvider, ProjectProvider, SearchProvider>(
+      builder: (context, chatProvider, projectProvider, searchProvider, child) {
         return ChatInput(
           isLoading: chatProvider.isLoading,
-          onSend: (text) {
-            // プロジェクトのシステムプロンプトを適用
+          isSearchEnabled: _isSearchEnabled,
+          onSend: (text) async {
             final systemPrompt = projectProvider.currentSystemPrompt;
-            chatProvider.sendMessage(text, projectSystemPrompt: systemPrompt);
+            
+            if (_isSearchEnabled) {
+              // Web検索を実行してからメッセージを送信
+              await _sendWithSearch(text, chatProvider, searchProvider, systemPrompt);
+            } else {
+              chatProvider.sendMessage(text, projectSystemPrompt: systemPrompt);
+            }
           },
           onStop: () {
             chatProvider.stopGeneration();
+          },
+          onSearchTap: () {
+            setState(() => _isSearchEnabled = !_isSearchEnabled);
           },
           onSkillTap: () {
             Navigator.push(
@@ -448,5 +460,31 @@ class _ChatScreenState extends State<ChatScreen> {
         );
       },
     );
+  }
+
+  Future<void> _sendWithSearch(
+    String query,
+    ChatProvider chatProvider,
+    SearchProvider searchProvider,
+    String systemPrompt,
+  ) async {
+    // 検索を実行
+    final results = await searchProvider.search(query);
+    
+    if (results.isEmpty) {
+      // 検索結果なしの場合はそのまま送信
+      chatProvider.sendMessage(query, projectSystemPrompt: systemPrompt);
+      return;
+    }
+
+    // 検索結果をコンテキストに追加
+    final searchContext = SearxngService.formatForContext(results);
+    final enhancedPrompt = '''$query
+
+$searchContext
+
+上記のWeb検索結果を参考に、質問に回答してください。''';
+    
+    chatProvider.sendMessage(enhancedPrompt, projectSystemPrompt: systemPrompt);
   }
 }

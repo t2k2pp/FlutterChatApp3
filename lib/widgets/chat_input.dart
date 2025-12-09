@@ -7,6 +7,8 @@ class ChatInput extends StatefulWidget {
   final bool isLoading;
   final VoidCallback? onStop;
   final VoidCallback? onSkillTap;
+  final VoidCallback? onSearchTap;
+  final bool isSearchEnabled;
 
   const ChatInput({
     super.key,
@@ -14,6 +16,8 @@ class ChatInput extends StatefulWidget {
     this.isLoading = false,
     this.onStop,
     this.onSkillTap,
+    this.onSearchTap,
+    this.isSearchEnabled = false,
   });
 
   @override
@@ -143,6 +147,13 @@ class _ChatInputState extends State<ChatInput> {
               Row(
                 children: [
                   _buildActionChip(
+                    icon: Icons.search_rounded,
+                    label: 'Web検索',
+                    isActive: widget.isSearchEnabled,
+                    onTap: widget.onSearchTap,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildActionChip(
                     icon: Icons.psychology_alt_rounded,
                     label: 'スキル',
                     onTap: widget.onSkillTap,
@@ -159,6 +170,7 @@ class _ChatInputState extends State<ChatInput> {
   Widget _buildActionChip({
     required IconData icon,
     required String label,
+    bool isActive = false,
     VoidCallback? onTap,
   }) {
     return Material(
@@ -169,20 +181,29 @@ class _ChatInputState extends State<ChatInput> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: AppTheme.darkCard,
+            color: isActive 
+                ? AppTheme.primaryColor.withValues(alpha: 0.2)
+                : AppTheme.darkCard,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AppTheme.darkBorder),
+            border: Border.all(
+              color: isActive ? AppTheme.primaryColor : AppTheme.darkBorder,
+            ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 16, color: AppTheme.textSecondary),
+              Icon(
+                icon, 
+                size: 16, 
+                color: isActive ? AppTheme.primaryColor : AppTheme.textSecondary,
+              ),
               const SizedBox(width: 6),
               Text(
                 label,
                 style: TextStyle(
-                  color: AppTheme.textSecondary,
+                  color: isActive ? AppTheme.primaryColor : AppTheme.textSecondary,
                   fontSize: 12,
+                  fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
                 ),
               ),
             ],
