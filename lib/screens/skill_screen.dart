@@ -463,6 +463,7 @@ class _SkillEditorScreenState extends State<SkillEditorScreen> {
   late TextEditingController _descriptionController;
   late TextEditingController _keywordsController;
   late List<SkillFile> _files;
+  late List<TextEditingController> _fileControllers;
   late String _icon;
   late String _color;
 
@@ -475,6 +476,7 @@ class _SkillEditorScreenState extends State<SkillEditorScreen> {
       text: widget.skill.trigger.keywords.join(', '),
     );
     _files = List.from(widget.skill.files);
+    _fileControllers = _files.map((f) => TextEditingController(text: f.content)).toList();
     _icon = widget.skill.icon;
     _color = widget.skill.color;
   }
@@ -484,6 +486,9 @@ class _SkillEditorScreenState extends State<SkillEditorScreen> {
     _nameController.dispose();
     _descriptionController.dispose();
     _keywordsController.dispose();
+    for (final c in _fileControllers) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -580,15 +585,19 @@ class _SkillEditorScreenState extends State<SkillEditorScreen> {
         trailing: IconButton(
           icon: Icon(Icons.delete_outline, color: Colors.red.shade400),
           onPressed: () {
-            setState(() => _files.removeAt(index));
+            setState(() {
+              _files.removeAt(index);
+              _fileControllers[index].dispose();
+              _fileControllers.removeAt(index);
+            });
           },
         ),
         children: [
           Padding(
             padding: const EdgeInsets.all(16),
             child: TextField(
+              controller: _fileControllers[index],
               maxLines: 10,
-              initialValue: file.content,
               style: TextStyle(
                 fontFamily: 'monospace',
                 fontSize: 12,
@@ -618,12 +627,14 @@ class _SkillEditorScreenState extends State<SkillEditorScreen> {
   }
 
   void _addFile() {
+    final content = '# 新規ファイル\n\n内容を記述';
     setState(() {
       _files.add(SkillFile(
         name: 'new_file.md',
         type: SkillFileType.reference,
-        content: '# 新規ファイル\n\n内容を記述',
+        content: content,
       ));
+      _fileControllers.add(TextEditingController(text: content));
     });
   }
 
