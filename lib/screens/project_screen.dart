@@ -98,8 +98,87 @@ class ProjectScreen extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // 「一般」に戻すボタン
+        Consumer<ProjectProvider>(
+          builder: (context, provider, _) {
+            final isGeneral = provider.currentProject == null;
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: isGeneral ? null : () {
+                    provider.selectProject(null);
+                    Navigator.pop(context);
+                  },
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: isGeneral 
+                          ? AppTheme.primaryColor.withValues(alpha: 0.15)
+                          : AppTheme.darkCard,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isGeneral 
+                            ? AppTheme.primaryColor 
+                            : AppTheme.darkBorder,
+                        width: isGeneral ? 2 : 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryColor.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.chat_bubble_outline,
+                            color: AppTheme.primaryColor,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '一般',
+                                style: TextStyle(
+                                  color: AppTheme.textPrimary,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              Text(
+                                'プロジェクトなしで会話',
+                                style: TextStyle(
+                                  color: AppTheme.textMuted,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (isGeneral)
+                          Icon(
+                            Icons.check_circle,
+                            color: AppTheme.primaryColor,
+                            size: 20,
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
           child: Row(
             children: [
               Icon(Icons.auto_awesome, color: AppTheme.accentColor, size: 20),
