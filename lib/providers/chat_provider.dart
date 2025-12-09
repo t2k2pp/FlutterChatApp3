@@ -3,11 +3,13 @@ import 'package:flutter/foundation.dart';
 import '../models/conversation.dart';
 import '../models/message.dart';
 import '../services/llm_service.dart';
+import '../services/llm_provider.dart';
 import '../services/storage_service.dart';
 
 class ChatProvider extends ChangeNotifier {
   final StorageService _storage = StorageService();
   LlmService _llmService = LlmService();
+  LlmProvider? _llmProvider;
   
   List<Conversation> _conversations = [];
   Conversation? _currentConversation;
@@ -62,8 +64,18 @@ class ChatProvider extends ChangeNotifier {
     await _storage.saveConversations(_conversations);
   }
 
+  /// 外部からLlmProviderを設定
+  void setLlmProvider(LlmProvider? provider) {
+    _llmProvider = provider;
+    notifyListeners();
+  }
+
   Future<void> testConnection() async {
-    _isConnected = await _llmService.testConnection();
+    if (_llmProvider != null) {
+      _isConnected = await _llmProvider!.testConnection();
+    } else {
+      _isConnected = await _llmService.testConnection();
+    }
     notifyListeners();
   }
 
@@ -152,7 +164,10 @@ class ChatProvider extends ChangeNotifier {
 
       // ストリーミングで応答を取得
       String fullResponse = '';
-      await for (final chunk in _llmService.streamChatCompletion(apiMessages)) {
+      final stream = _llmProvider != null 
+          ? _llmProvider!.streamChatCompletion(apiMessages)
+          : _llmService.streamChatCompletion(apiMessages);
+      await for (final chunk in stream) {
         fullResponse += chunk;
         
         final updatedAssistantMessage = assistantMessage.copyWith(

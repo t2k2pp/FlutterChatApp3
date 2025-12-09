@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../providers/chat_provider.dart';
+import '../../providers/llm_provider_manager.dart';
 import '../../services/export_service.dart';
+import '../../screens/llm_provider_screen.dart';
 import '../../theme/app_theme.dart';
 
 class ConversationDrawer extends StatelessWidget {
@@ -417,45 +419,80 @@ class ConversationDrawer extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               // 接続状態と設定
-              Row(
-                children: [
-                  Container(
-                    width: 10,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      color: provider.isConnected ? Colors.green : Colors.red,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: (provider.isConnected ? Colors.green : Colors.red)
-                              .withValues(alpha: 0.5),
-                          blurRadius: 6,
+              Consumer<LlmProviderManager>(
+                builder: (context, llmManager, _) {
+                  final config = llmManager.currentConfig;
+                  final isConnected = llmManager.isConnected;
+                  
+                  return Row(
+                    children: [
+                      Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: isConnected ? Colors.green : Colors.red,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: (isConnected ? Colors.green : Colors.red)
+                                  .withValues(alpha: 0.5),
+                              blurRadius: 6,
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      provider.isConnected ? 'サーバー接続中' : 'オフライン',
-                      style: TextStyle(
-                        color: AppTheme.textSecondary,
-                        fontSize: 13,
                       ),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(
-                      Icons.settings_outlined,
-                      color: AppTheme.textSecondary,
-                      size: 22,
-                    ),
-                    onPressed: () {
-                      Navigator.pop(context);
-                      _showSettingsDialog(context);
-                    },
-                  ),
-                ],
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              config?.name ?? 'プロバイダー未設定',
+                              style: TextStyle(
+                                color: AppTheme.textSecondary,
+                                fontSize: 13,
+                              ),
+                            ),
+                            if (config?.model != null)
+                              Text(
+                                config!.model!,
+                                style: TextStyle(
+                                  color: AppTheme.textMuted,
+                                  fontSize: 11,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(
+                          Icons.cloud_outlined,
+                          color: AppTheme.textSecondary,
+                          size: 22,
+                        ),
+                        tooltip: 'LLMプロバイダー',
+                        onPressed: () {
+                          Navigator.pop(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const LlmProviderScreen()),
+                          );
+                        },
+                      ),
+                      IconButton(
+                        icon: const Icon(
+                          Icons.settings_outlined,
+                          color: AppTheme.textSecondary,
+                          size: 22,
+                        ),
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _showSettingsDialog(context);
+                        },
+                      ),
+                    ],
+                  );
+                },
               ),
             ],
           ),
