@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../providers/chat_provider.dart';
 import '../../providers/project_provider.dart';
 import '../../providers/search_provider.dart';
+import '../../providers/skill_provider.dart';
 import '../../services/export_service.dart';
 import '../../services/searxng_service.dart';
 import '../../theme/app_theme.dart';
@@ -423,19 +424,20 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildInput() {
-    return Consumer3<ChatProvider, ProjectProvider, SearchProvider>(
-      builder: (context, chatProvider, projectProvider, searchProvider, child) {
+    return Consumer4<ChatProvider, ProjectProvider, SearchProvider, SkillProvider>(
+      builder: (context, chatProvider, projectProvider, searchProvider, skillProvider, child) {
         return ChatInput(
           isLoading: chatProvider.isLoading,
           isSearchEnabled: _isSearchEnabled,
           onSend: (text) async {
             final systemPrompt = projectProvider.currentSystemPrompt;
+            final skillContext = skillProvider.getActiveSkillsContext();
             
             if (_isSearchEnabled) {
               // Web検索を実行してからメッセージを送信
-              await _sendWithSearch(text, chatProvider, searchProvider, systemPrompt);
+              await _sendWithSearch(text, chatProvider, searchProvider, systemPrompt, skillContext);
             } else {
-              chatProvider.sendMessage(text, projectSystemPrompt: systemPrompt);
+              chatProvider.sendMessage(text, projectSystemPrompt: systemPrompt, skillContext: skillContext);
             }
           },
           onStop: () {
@@ -467,13 +469,14 @@ class _ChatScreenState extends State<ChatScreen> {
     ChatProvider chatProvider,
     SearchProvider searchProvider,
     String systemPrompt,
+    String skillContext,
   ) async {
     // 検索を実行
     final results = await searchProvider.search(query);
     
     if (results.isEmpty) {
       // 検索結果なしの場合はそのまま送信
-      chatProvider.sendMessage(query, projectSystemPrompt: systemPrompt);
+      chatProvider.sendMessage(query, projectSystemPrompt: systemPrompt, skillContext: skillContext);
       return;
     }
 
@@ -485,6 +488,6 @@ $searchContext
 
 上記のWeb検索結果を参考に、質問に回答してください。''';
     
-    chatProvider.sendMessage(enhancedPrompt, projectSystemPrompt: systemPrompt);
+    chatProvider.sendMessage(enhancedPrompt, projectSystemPrompt: systemPrompt, skillContext: skillContext);
   }
 }

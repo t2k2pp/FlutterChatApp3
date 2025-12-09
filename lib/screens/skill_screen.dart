@@ -5,7 +5,7 @@ import '../../providers/skill_provider.dart';
 import '../../theme/app_theme.dart';
 
 class SkillScreen extends StatelessWidget {
-  final Function(String prompt)? onExecuteSkill;
+  final Function(String)? onExecuteSkill;
 
   const SkillScreen({super.key, this.onExecuteSkill});
 
@@ -17,18 +17,29 @@ class SkillScreen extends StatelessWidget {
         backgroundColor: AppTheme.darkSurface,
         title: const Text('スキル'),
         actions: [
-          IconButton(
-            icon: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                gradient: AppTheme.primaryGradient,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(Icons.add_rounded, size: 18, color: Colors.white),
-            ),
-            onPressed: () => _showCreateDialog(context),
+          // 自動検出トグル
+          Consumer<SkillProvider>(
+            builder: (context, provider, _) {
+              return IconButton(
+                icon: Icon(
+                  provider.autoDetectEnabled 
+                      ? Icons.auto_awesome 
+                      : Icons.auto_awesome_outlined,
+                  color: provider.autoDetectEnabled 
+                      ? AppTheme.accentColor 
+                      : AppTheme.textMuted,
+                ),
+                tooltip: '自動検出 ${provider.autoDetectEnabled ? "ON" : "OFF"}',
+                onPressed: () {
+                  provider.setAutoDetect(!provider.autoDetectEnabled);
+                },
+              );
+            },
           ),
-          const SizedBox(width: 8),
+          IconButton(
+            icon: const Icon(Icons.add_rounded),
+            onPressed: () => _showSkillEditor(context, null),
+          ),
         ],
       ),
       body: Consumer<SkillProvider>(
@@ -37,45 +48,66 @@ class SkillScreen extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
 
-          if (provider.skills.isEmpty) {
-            return _buildEmptyState(context);
-          }
-
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: provider.skills.length,
-            itemBuilder: (context, index) {
-              return _buildSkillCard(context, provider.skills[index]);
-            },
+          return Column(
+            children: [
+              // 有効なスキル
+              if (provider.activeSkills.isNotEmpty)
+                _buildActiveSkillsBar(context, provider),
+              // スキル一覧
+              Expanded(
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: provider.skills.length,
+                  itemBuilder: (context, index) {
+                    return _buildSkillCard(context, provider.skills[index]);
+                  },
+                ),
+              ),
+            ],
           );
         },
       ),
     );
   }
 
-  Widget _buildEmptyState(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+  Widget _buildActiveSkillsBar(BuildContext context, SkillProvider provider) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppTheme.accentColor.withValues(alpha: 0.1),
+        border: Border(
+          bottom: BorderSide(color: AppTheme.accentColor.withValues(alpha: 0.3)),
+        ),
+      ),
+      child: Row(
         children: [
-          Icon(
-            Icons.psychology_alt_rounded,
-            size: 64,
-            color: AppTheme.textMuted.withValues(alpha: 0.5),
-          ),
-          const SizedBox(height: 16),
+          Icon(Icons.flash_on, size: 18, color: AppTheme.accentColor),
+          const SizedBox(width: 8),
           Text(
-            'スキルがありません',
-            style: TextStyle(
-              color: AppTheme.textSecondary,
-              fontSize: 16,
+            '有効:',
+            style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Wrap(
+              spacing: 8,
+              children: provider.activeSkills.map((skill) {
+                return Chip(
+                  label: Text(
+                    '${skill.icon} ${skill.name}',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  deleteIcon: const Icon(Icons.close, size: 16),
+                  onDeleted: () => provider.deactivateSkill(skill.id),
+                  backgroundColor: _parseColor(skill.color).withValues(alpha: 0.2),
+                  side: BorderSide(color: _parseColor(skill.color)),
+                );
+              }).toList(),
             ),
           ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () => context.read<SkillProvider>().resetToDefaults(),
-            icon: const Icon(Icons.refresh_rounded),
-            label: const Text('プリセットを復元'),
+          TextButton(
+            onPressed: () => provider.deactivateAllSkills(),
+            child: const Text('全解除'),
           ),
         ],
       ),
@@ -83,89 +115,159 @@ class SkillScreen extends StatelessWidget {
   }
 
   Widget _buildSkillCard(BuildContext context, Skill skill) {
+    final provider = context.read<SkillProvider>();
+    final isActive = provider.activeSkills.any((s) => s.id == skill.id);
     final color = _parseColor(skill.color);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      color: AppTheme.darkCard,
+      color: isActive ? color.withValues(alpha: 0.1) : AppTheme.darkCard,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: AppTheme.darkBorder),
+        side: BorderSide(
+          color: isActive ? color : AppTheme.darkBorder,
+          width: isActive ? 2 : 1,
+        ),
       ),
       child: InkWell(
-        onTap: () => _showExecuteDialog(context, skill),
-        onLongPress: () => _showOptionsSheet(context, skill),
+        onTap: () {
+          if (isActive) {
+            provider.deactivateSkill(skill.id);
+          } else {
+            provider.activateSkill(skill);
+          }
+        },
         borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  skill.icon ?? '⚡',
-                  style: const TextStyle(fontSize: 24),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      skill.name,
-                      style: const TextStyle(
-                        color: AppTheme.textPrimary,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    if (skill.description.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        skill.description,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: AppTheme.textMuted,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
-                    if (skill.variables.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 6,
-                        children: skill.variables.map((v) {
-                          return Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: AppTheme.darkBackground,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              '{{${v.name}}}',
+                    child: Text(skill.icon, style: const TextStyle(fontSize: 20)),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              skill.name,
                               style: TextStyle(
-                                color: color,
-                                fontSize: 11,
-                                fontFamily: 'monospace',
+                                color: AppTheme.textPrimary,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
-                          );
-                        }).toList(),
+                            if (skill.isBuiltIn) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.textMuted.withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  'ビルトイン',
+                                  style: TextStyle(
+                                    color: AppTheme.textMuted,
+                                    fontSize: 10,
+                                  ),
+                                ),
+                              ),
+                            ],
+                            if (isActive) ...[
+                              const SizedBox(width: 8),
+                              Icon(
+                                Icons.check_circle,
+                                size: 18,
+                                color: color,
+                              ),
+                            ],
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          skill.description,
+                          style: TextStyle(
+                            color: AppTheme.textMuted,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  PopupMenuButton<String>(
+                    icon: Icon(Icons.more_vert, color: AppTheme.textMuted),
+                    onSelected: (action) {
+                      switch (action) {
+                        case 'edit':
+                          _showSkillEditor(context, skill);
+                          break;
+                        case 'delete':
+                          provider.deleteSkill(skill.id);
+                          break;
+                        case 'view':
+                          _showSkillDetails(context, skill);
+                          break;
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 'view',
+                        child: Text('詳細を見る'),
                       ),
+                      if (!skill.isBuiltIn) ...[
+                        const PopupMenuItem(
+                          value: 'edit',
+                          child: Text('編集'),
+                        ),
+                        PopupMenuItem(
+                          value: 'delete',
+                          child: Text(
+                            '削除',
+                            style: TextStyle(color: Colors.red.shade400),
+                          ),
+                        ),
+                      ],
                     ],
+                  ),
+                ],
+              ),
+              // トリガー情報
+              if (skill.trigger.keywords.isNotEmpty ||
+                  skill.trigger.patterns.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    ...skill.trigger.keywords.take(3).map((kw) => _buildTag(kw)),
+                    if (skill.trigger.keywords.length > 3)
+                      _buildTag('+${skill.trigger.keywords.length - 3}'),
                   ],
                 ),
-              ),
-              Icon(
-                Icons.play_arrow_rounded,
-                color: color,
-                size: 24,
+              ],
+              // ファイル数
+              const SizedBox(height: 8),
+              Text(
+                '${skill.files.length}ファイル',
+                style: TextStyle(
+                  color: AppTheme.textMuted,
+                  fontSize: 11,
+                ),
               ),
             ],
           ),
@@ -174,264 +276,380 @@ class SkillScreen extends StatelessWidget {
     );
   }
 
-  void _showExecuteDialog(BuildContext context, Skill skill) {
-    final controllers = <String, TextEditingController>{};
-    for (final variable in skill.variables) {
-      controllers[variable.name] = TextEditingController(text: variable.defaultValue ?? '');
-    }
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.darkCard,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Text(skill.icon ?? '⚡', style: const TextStyle(fontSize: 24)),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                skill.name,
-                style: const TextStyle(color: AppTheme.textPrimary),
-              ),
-            ),
-          ],
+  Widget _buildTag(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppTheme.darkBackground,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppTheme.darkBorder),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: AppTheme.textMuted,
+          fontSize: 11,
         ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: skill.variables.map((variable) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: TextField(
-                  controller: controllers[variable.name],
-                  maxLines: variable.name == 'text' || variable.name == 'code' ? 5 : 1,
-                  style: const TextStyle(color: AppTheme.textPrimary),
-                  decoration: InputDecoration(
-                    labelText: '${variable.label}${variable.required ? ' *' : ''}',
-                    labelStyle: TextStyle(color: AppTheme.textMuted),
-                    helperText: variable.description,
-                    helperStyle: TextStyle(color: AppTheme.textMuted, fontSize: 11),
-                    filled: true,
-                    fillColor: AppTheme.darkBackground,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('キャンセル', style: TextStyle(color: AppTheme.textMuted)),
-          ),
-          ElevatedButton.icon(
-            onPressed: () {
-              // 変数を収集
-              final values = <String, String>{};
-              controllers.forEach((key, controller) {
-                values[key] = controller.text;
-              });
-
-              // プロンプトを生成
-              final prompt = skill.generatePrompt(values);
-              Navigator.pop(context);
-              
-              // 結果を返す
-              if (onExecuteSkill != null) {
-                onExecuteSkill!(prompt);
-                Navigator.pop(context);  // スキル画面も閉じる
-              }
-            },
-            icon: const Icon(Icons.play_arrow_rounded, size: 18),
-            label: const Text('実行'),
-          ),
-        ],
       ),
     );
   }
 
-  void _showOptionsSheet(BuildContext context, Skill skill) {
+  void _showSkillDetails(BuildContext context, Skill skill) {
     showModalBottomSheet(
       context: context,
       backgroundColor: AppTheme.darkCard,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.edit_outlined, color: AppTheme.textSecondary),
-                title: const Text('編集', style: TextStyle(color: AppTheme.textPrimary)),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showEditDialog(context, skill);
-                },
-              ),
-              ListTile(
-                leading: Icon(Icons.delete_outline, color: Colors.red.shade400),
-                title: Text('削除', style: TextStyle(color: Colors.red.shade400)),
-                onTap: () {
-                  context.read<SkillProvider>().deleteSkill(skill.id);
-                  Navigator.pop(context);
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showCreateDialog(BuildContext context) {
-    final nameController = TextEditingController();
-    final descController = TextEditingController();
-    final templateController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.darkCard,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('新規スキル', style: TextStyle(color: AppTheme.textPrimary)),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                style: const TextStyle(color: AppTheme.textPrimary),
-                decoration: _inputDecoration('スキル名', Icons.label_rounded),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: descController,
-                style: const TextStyle(color: AppTheme.textPrimary),
-                decoration: _inputDecoration('説明', Icons.description_outlined),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: templateController,
-                maxLines: 5,
-                style: const TextStyle(color: AppTheme.textPrimary),
-                decoration: _inputDecoration('プロンプト', Icons.edit_note_rounded)
-                    .copyWith(helperText: '変数は {{変数名}} で指定'),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('キャンセル', style: TextStyle(color: AppTheme.textMuted)),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (nameController.text.trim().isEmpty) return;
-              
-              await context.read<SkillProvider>().createSkill(
-                name: nameController.text.trim(),
-                description: descController.text.trim(),
-                promptTemplate: templateController.text.trim(),
-              );
-              if (context.mounted) Navigator.pop(context);
-            },
-            child: const Text('作成'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showEditDialog(BuildContext context, Skill skill) {
-    final nameController = TextEditingController(text: skill.name);
-    final descController = TextEditingController(text: skill.description);
-    final templateController = TextEditingController(text: skill.promptTemplate);
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.darkCard,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('スキルを編集', style: TextStyle(color: AppTheme.textPrimary)),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                style: const TextStyle(color: AppTheme.textPrimary),
-                decoration: _inputDecoration('スキル名', Icons.label_rounded),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: descController,
-                style: const TextStyle(color: AppTheme.textPrimary),
-                decoration: _inputDecoration('説明', Icons.description_outlined),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: templateController,
-                maxLines: 5,
-                style: const TextStyle(color: AppTheme.textPrimary),
-                decoration: _inputDecoration('プロンプト', Icons.edit_note_rounded),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('キャンセル', style: TextStyle(color: AppTheme.textMuted)),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (nameController.text.trim().isEmpty) return;
-              
-              await context.read<SkillProvider>().updateSkill(
-                skill.copyWith(
-                  name: nameController.text.trim(),
-                  description: descController.text.trim(),
-                  promptTemplate: templateController.text.trim(),
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        maxChildSize: 0.95,
+        minChildSize: 0.5,
+        expand: false,
+        builder: (context, scrollController) {
+          return Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(skill.icon, style: const TextStyle(fontSize: 28)),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        skill.name,
+                        style: const TextStyle(
+                          color: AppTheme.textPrimary,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              );
-              if (context.mounted) Navigator.pop(context);
-            },
-            child: const Text('保存'),
+                const SizedBox(height: 8),
+                Text(
+                  skill.description,
+                  style: TextStyle(color: AppTheme.textSecondary),
+                ),
+                const SizedBox(height: 16),
+                const Divider(),
+                const SizedBox(height: 8),
+                Text(
+                  'ファイル構成',
+                  style: TextStyle(
+                    color: AppTheme.textPrimary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: ListView.builder(
+                    controller: scrollController,
+                    itemCount: skill.files.length,
+                    itemBuilder: (context, index) {
+                      final file = skill.files[index];
+                      return _buildFileCard(file);
+                    },
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildFileCard(SkillFile file) {
+    IconData icon;
+    switch (file.type) {
+      case SkillFileType.instruction:
+        icon = Icons.description;
+        break;
+      case SkillFileType.prompt:
+        icon = Icons.chat;
+        break;
+      case SkillFileType.script:
+        icon = Icons.code;
+        break;
+      case SkillFileType.reference:
+        icon = Icons.book;
+        break;
+      case SkillFileType.example:
+        icon = Icons.lightbulb;
+        break;
+    }
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      color: AppTheme.darkBackground,
+      child: ExpansionTile(
+        leading: Icon(icon, color: AppTheme.textSecondary),
+        title: Text(
+          file.name,
+          style: const TextStyle(color: AppTheme.textPrimary, fontSize: 14),
+        ),
+        subtitle: file.description != null
+            ? Text(
+                file.description!,
+                style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
+              )
+            : null,
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            color: AppTheme.darkCard,
+            child: SelectableText(
+              file.content,
+              style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 12,
+                color: AppTheme.textSecondary,
+                height: 1.5,
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  InputDecoration _inputDecoration(String label, IconData icon) {
-    return InputDecoration(
-      labelText: label,
-      labelStyle: TextStyle(color: AppTheme.textMuted),
-      prefixIcon: Icon(icon, color: AppTheme.textMuted),
-      filled: true,
-      fillColor: AppTheme.darkBackground,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide.none,
+  void _showSkillEditor(BuildContext context, Skill? existingSkill) {
+    final provider = context.read<SkillProvider>();
+    final skill = existingSkill ?? provider.createNewSkill();
+    
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SkillEditorScreen(
+          skill: skill,
+          isNew: existingSkill == null,
+        ),
       ),
     );
   }
 
-  Color _parseColor(String hex) {
+  Color _parseColor(String hexColor) {
     try {
-      return Color(int.parse(hex.replaceFirst('#', '0xFF')));
+      return Color(int.parse(hexColor.replaceFirst('#', '0xFF')));
     } catch (e) {
-      return AppTheme.primaryColor;
+      return AppTheme.accentColor;
     }
+  }
+}
+
+/// スキル編集画面
+class SkillEditorScreen extends StatefulWidget {
+  final Skill skill;
+  final bool isNew;
+
+  const SkillEditorScreen({
+    super.key,
+    required this.skill,
+    this.isNew = false,
+  });
+
+  @override
+  State<SkillEditorScreen> createState() => _SkillEditorScreenState();
+}
+
+class _SkillEditorScreenState extends State<SkillEditorScreen> {
+  late TextEditingController _nameController;
+  late TextEditingController _descriptionController;
+  late TextEditingController _keywordsController;
+  late List<SkillFile> _files;
+  late String _icon;
+  late String _color;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.skill.name);
+    _descriptionController = TextEditingController(text: widget.skill.description);
+    _keywordsController = TextEditingController(
+      text: widget.skill.trigger.keywords.join(', '),
+    );
+    _files = List.from(widget.skill.files);
+    _icon = widget.skill.icon;
+    _color = widget.skill.color;
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _descriptionController.dispose();
+    _keywordsController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppTheme.darkBackground,
+      appBar: AppBar(
+        backgroundColor: AppTheme.darkSurface,
+        title: Text(widget.isNew ? '新規スキル' : 'スキル編集'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.save_rounded),
+            onPressed: _saveSkill,
+          ),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          // 基本情報
+          _buildTextField(_nameController, '名前', Icons.label),
+          const SizedBox(height: 16),
+          _buildTextField(_descriptionController, '説明', Icons.description),
+          const SizedBox(height: 16),
+          _buildTextField(_keywordsController, 'トリガーキーワード（カンマ区切り）', Icons.flash_on),
+          const SizedBox(height: 24),
+          
+          // ファイル一覧
+          Row(
+            children: [
+              Text(
+                'ファイル',
+                style: TextStyle(
+                  color: AppTheme.textPrimary,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.add_rounded),
+                onPressed: _addFile,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ..._files.asMap().entries.map((entry) {
+            return _buildFileEditor(entry.key, entry.value);
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTextField(
+    TextEditingController controller,
+    String label,
+    IconData icon,
+  ) {
+    return TextField(
+      controller: controller,
+      style: const TextStyle(color: AppTheme.textPrimary),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: TextStyle(color: AppTheme.textMuted),
+        prefixIcon: Icon(icon, color: AppTheme.textMuted),
+        filled: true,
+        fillColor: AppTheme.darkCard,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFileEditor(int index, SkillFile file) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      color: AppTheme.darkCard,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: ExpansionTile(
+        title: Text(
+          file.name,
+          style: const TextStyle(color: AppTheme.textPrimary),
+        ),
+        subtitle: Text(
+          file.type.name,
+          style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
+        ),
+        trailing: IconButton(
+          icon: Icon(Icons.delete_outline, color: Colors.red.shade400),
+          onPressed: () {
+            setState(() => _files.removeAt(index));
+          },
+        ),
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: TextField(
+              maxLines: 10,
+              initialValue: file.content,
+              style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 12,
+                color: AppTheme.textPrimary,
+              ),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: AppTheme.darkBackground,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+              onChanged: (value) {
+                _files[index] = SkillFile(
+                  name: file.name,
+                  type: file.type,
+                  content: value,
+                  description: file.description,
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _addFile() {
+    setState(() {
+      _files.add(SkillFile(
+        name: 'new_file.md',
+        type: SkillFileType.reference,
+        content: '# 新規ファイル\n\n内容を記述',
+      ));
+    });
+  }
+
+  void _saveSkill() {
+    final keywords = _keywordsController.text
+        .split(',')
+        .map((k) => k.trim())
+        .where((k) => k.isNotEmpty)
+        .toList();
+
+    final updatedSkill = widget.skill.copyWith(
+      name: _nameController.text,
+      description: _descriptionController.text,
+      icon: _icon,
+      color: _color,
+      files: _files,
+      trigger: SkillTrigger(keywords: keywords),
+    );
+
+    final provider = context.read<SkillProvider>();
+    if (widget.isNew) {
+      provider.addSkill(updatedSkill);
+    } else {
+      provider.updateSkill(updatedSkill);
+    }
+
+    Navigator.pop(context);
   }
 }
