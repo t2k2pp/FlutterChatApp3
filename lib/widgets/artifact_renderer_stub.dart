@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 import '../../models/artifact.dart';
 import '../../theme/app_theme.dart';
 
-/// 非Web環境（Android等）用のArtifactレンダラー
+/// Android/iOS用のArtifactレンダラー（WebView使用）
 class ArtifactRenderer extends StatefulWidget {
   final Artifact artifact;
   final bool showCode;
@@ -21,6 +22,41 @@ class ArtifactRenderer extends StatefulWidget {
 
 class _ArtifactRendererState extends State<ArtifactRenderer> {
   bool _isExpanded = false;
+  late WebViewController _controller;
+  bool _isWebViewReady = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initWebView();
+  }
+
+  void _initWebView() {
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(Colors.white)
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageFinished: (url) {
+            setState(() => _isWebViewReady = true);
+          },
+        ),
+      );
+    _loadContent();
+  }
+
+  void _loadContent() {
+    final htmlContent = widget.artifact.toPreviewHtml();
+    _controller.loadHtmlString(htmlContent);
+  }
+
+  @override
+  void didUpdateWidget(ArtifactRenderer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.artifact.content != widget.artifact.content) {
+      _loadContent();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -41,7 +77,7 @@ class _ArtifactRendererState extends State<ArtifactRenderer> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _buildHeader(),
-          _buildCodeView(),
+          if (widget.showCode) _buildCodeView() else _buildPreview(),
         ],
       ),
     );
@@ -94,41 +130,79 @@ class _ArtifactRendererState extends State<ArtifactRenderer> {
               ],
             ),
           ),
+          // コード/プレビュー切替
+          _buildToggleButton(
+            icon: widget.showCode ? Icons.visibility : Icons.code,
+            label: widget.showCode ? 'プレビュー' : 'コード',
+            onTap: widget.onToggleView,
+          ),
+          const SizedBox(width: 8),
           // 展開/縮小
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () => setState(() => _isExpanded = !_isExpanded),
-              borderRadius: BorderRadius.circular(6),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppTheme.darkBackground,
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: AppTheme.darkBorder),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      _isExpanded ? Icons.fullscreen_exit : Icons.fullscreen,
-                      size: 14,
-                      color: AppTheme.textSecondary,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      _isExpanded ? '縮小' : '展開',
-                      style: TextStyle(
-                        color: AppTheme.textSecondary,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+          _buildToggleButton(
+            icon: _isExpanded ? Icons.fullscreen_exit : Icons.fullscreen,
+            label: _isExpanded ? '縮小' : '展開',
+            onTap: () => setState(() => _isExpanded = !_isExpanded),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildToggleButton({
+    required IconData icon,
+    required String label,
+    VoidCallback? onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(6),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: AppTheme.darkBackground,
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: AppTheme.darkBorder),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 14, color: AppTheme.textSecondary),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  color: AppTheme.textSecondary,
+                  fontSize: 11,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPreview() {
+    final height = _isExpanded ? 500.0 : 300.0;
+
+    return SizedBox(
+      height: height,
+      child: ClipRRect(
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
+        child: Stack(
+          children: [
+            WebViewWidget(controller: _controller),
+            if (!_isWebViewReady)
+              Container(
+                color: AppTheme.darkCard,
+                child: const Center(
+                  child: CircularProgressIndicator(),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
