@@ -7,6 +7,7 @@ enum LlmProviderType {
   openai,        // OpenAI ChatGPT
   gemini,        // Google Gemini
   azureOpenai,   // Azure OpenAI Service
+  azureClaude,   // Azure AI Foundry Claude
 }
 
 /// LLMプロバイダーの設定
@@ -114,6 +115,13 @@ class LlmProviderConfig {
     baseUrl: 'https://your-resource.openai.azure.com',
     deploymentName: 'gpt-4o',
     apiVersion: '2024-02-15-preview',
+  );
+
+  static LlmProviderConfig get defaultAzureClaude => const LlmProviderConfig(
+    type: LlmProviderType.azureClaude,
+    name: 'Azure Claude',
+    baseUrl: 'https://your-resource.services.ai.azure.com',
+    model: 'claude-3-5-sonnet-20241022',
   );
 }
 

@@ -5,6 +5,7 @@ import '../services/providers/claude_provider.dart';
 import '../services/providers/openai_provider.dart';
 import '../services/providers/gemini_provider.dart';
 import '../services/providers/azure_openai_provider.dart';
+import '../services/providers/azure_claude_provider.dart';
 import '../services/storage_service.dart';
 
 class LlmProviderManager extends ChangeNotifier {
@@ -99,6 +100,8 @@ class LlmProviderManager extends ChangeNotifier {
         return GeminiProvider(config: config);
       case LlmProviderType.azureOpenai:
         return AzureOpenAIProvider(config: config);
+      case LlmProviderType.azureClaude:
+        return AzureClaudeProvider(config: config);
     }
   }
 
@@ -173,6 +176,9 @@ class LlmProviderManager extends ChangeNotifier {
         break;
       case LlmProviderType.azureOpenai:
         config = LlmProviderConfig.defaultAzureOpenAI;
+        break;
+      case LlmProviderType.azureClaude:
+        config = LlmProviderConfig.defaultAzureClaude;
         break;
     }
     await addProvider(config);

@@ -33,6 +33,7 @@ class LlmProviderScreen extends StatelessWidget {
               _buildMenuItem(LlmProviderType.openai, 'ChatGPT (OpenAI)', Icons.chat),
               _buildMenuItem(LlmProviderType.gemini, 'Gemini (Google)', Icons.auto_awesome),
               _buildMenuItem(LlmProviderType.azureOpenai, 'Azure OpenAI', Icons.cloud),
+              _buildMenuItem(LlmProviderType.azureClaude, 'Azure Claude', Icons.cloud_circle),
             ],
           ),
           const SizedBox(width: 8),
@@ -350,6 +351,8 @@ class LlmProviderScreen extends StatelessWidget {
         return const Color(0xFF4285F4);
       case LlmProviderType.azureOpenai:
         return const Color(0xFF0078D4);  // Azure blue
+      case LlmProviderType.azureClaude:
+        return const Color(0xFF9B4DCA);  // Purple for Claude
     }
   }
 
@@ -365,6 +368,8 @@ class LlmProviderScreen extends StatelessWidget {
         return Icons.auto_awesome;
       case LlmProviderType.azureOpenai:
         return Icons.cloud;
+      case LlmProviderType.azureClaude:
+        return Icons.cloud_circle;
     }
   }
 }
