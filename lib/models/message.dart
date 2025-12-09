@@ -1,6 +1,6 @@
 import 'package:uuid/uuid.dart';
 
-enum MessageRole { user, assistant, system }
+enum MessageRole { user, assistant, system, watson }
 
 class Message {
   final String id;
@@ -8,6 +8,13 @@ class Message {
   final String content;
   final DateTime timestamp;
   final bool isStreaming;
+  
+  // Thinkingモード用
+  final String? thinkingContent;
+  final bool isThinking;
+  
+  // Watson用
+  final bool isHallucinationWarning;
 
   Message({
     String? id,
@@ -15,6 +22,9 @@ class Message {
     required this.content,
     DateTime? timestamp,
     this.isStreaming = false,
+    this.thinkingContent,
+    this.isThinking = false,
+    this.isHallucinationWarning = false,
   })  : id = id ?? const Uuid().v4(),
         timestamp = timestamp ?? DateTime.now();
 
@@ -24,6 +34,9 @@ class Message {
     String? content,
     DateTime? timestamp,
     bool? isStreaming,
+    String? thinkingContent,
+    bool? isThinking,
+    bool? isHallucinationWarning,
   }) {
     return Message(
       id: id ?? this.id,
@@ -31,6 +44,9 @@ class Message {
       content: content ?? this.content,
       timestamp: timestamp ?? this.timestamp,
       isStreaming: isStreaming ?? this.isStreaming,
+      thinkingContent: thinkingContent ?? this.thinkingContent,
+      isThinking: isThinking ?? this.isThinking,
+      isHallucinationWarning: isHallucinationWarning ?? this.isHallucinationWarning,
     );
   }
 
@@ -38,7 +54,7 @@ class Message {
     return {
       'role': role == MessageRole.user
           ? 'user'
-          : role == MessageRole.assistant
+          : role == MessageRole.assistant || role == MessageRole.watson
               ? 'assistant'
               : 'system',
       'content': content,
@@ -51,6 +67,8 @@ class Message {
       'role': role.name,
       'content': content,
       'timestamp': timestamp.toIso8601String(),
+      'thinkingContent': thinkingContent,
+      'isHallucinationWarning': isHallucinationWarning,
     };
   }
 
@@ -60,6 +78,8 @@ class Message {
       role: MessageRole.values.firstWhere((e) => e.name == json['role']),
       content: json['content'],
       timestamp: DateTime.parse(json['timestamp']),
+      thinkingContent: json['thinkingContent'],
+      isHallucinationWarning: json['isHallucinationWarning'] ?? false,
     );
   }
 }

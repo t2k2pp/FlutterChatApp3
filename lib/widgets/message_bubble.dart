@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import '../../models/artifact.dart';
 import '../../models/message.dart';
 import '../../theme/app_theme.dart';
+import 'artifact_renderer.dart';
 
 class MessageBubble extends StatefulWidget {
   final Message message;
@@ -21,19 +23,38 @@ class MessageBubble extends StatefulWidget {
 class _MessageBubbleState extends State<MessageBubble> {
   bool _showActions = false;
   bool _copied = false;
+  bool _showThinking = false;
+  bool _showCode = false;
+  List<Artifact> _artifacts = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _parseArtifacts();
+  }
+
+  @override
+  void didUpdateWidget(MessageBubble oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.message.content != widget.message.content) {
+      _parseArtifacts();
+    }
+  }
+
+  void _parseArtifacts() {
+    _artifacts = ArtifactParser.extractArtifacts(widget.message.content);
+  }
 
   void _copyToClipboard() async {
     await Clipboard.setData(ClipboardData(text: widget.message.content));
     setState(() => _copied = true);
     
-    // 2秒後にリセット
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) {
         setState(() => _copied = false);
       }
     });
     
-    // SnackBarで通知
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -50,6 +71,7 @@ class _MessageBubbleState extends State<MessageBubble> {
   @override
   Widget build(BuildContext context) {
     final isUser = widget.message.role == MessageRole.user;
+    final isWatson = widget.message.role == MessageRole.watson;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _showActions = true),
@@ -62,23 +84,108 @@ class _MessageBubbleState extends State<MessageBubble> {
             mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (!isUser) _buildAvatar(isUser),
+              if (!isUser) _buildAvatar(isUser, isWatson),
               if (!isUser) const SizedBox(width: 12),
               Flexible(
                 child: Column(
                   crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                   children: [
-                    _buildMessageContent(context, isUser),
+                    // Thinkingブロック
+                    if (widget.message.thinkingContent != null && 
+                        widget.message.thinkingContent!.isNotEmpty)
+                      _buildThinkingBlock(),
+                    // メッセージコンテンツ
+                    _buildMessageContent(context, isUser, isWatson),
+                    // Artifact表示
+                    if (_artifacts.isNotEmpty && !widget.message.isStreaming)
+                      ..._artifacts.map((artifact) => ArtifactRenderer(
+                        artifact: artifact,
+                        showCode: _showCode,
+                        onToggleView: () => setState(() => _showCode = !_showCode),
+                      )),
+                    // アクションバー
                     if (_showActions && !widget.message.isStreaming)
                       _buildActionBar(isUser),
                   ],
                 ),
               ),
               if (isUser) const SizedBox(width: 12),
-              if (isUser) _buildAvatar(isUser),
+              if (isUser) _buildAvatar(isUser, isWatson),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildThinkingBlock() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: AppTheme.darkCard,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppTheme.secondaryColor.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ヘッダー
+          InkWell(
+            onTap: () => setState(() => _showThinking = !_showThinking),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: AppTheme.secondaryColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.vertical(
+                  top: const Radius.circular(12),
+                  bottom: _showThinking ? Radius.zero : const Radius.circular(12),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.psychology_rounded,
+                    size: 16,
+                    color: AppTheme.secondaryColor,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '思考過程',
+                    style: TextStyle(
+                      color: AppTheme.secondaryColor,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Icon(
+                    _showThinking ? Icons.expand_less : Icons.expand_more,
+                    size: 16,
+                    color: AppTheme.secondaryColor,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // 内容
+          if (_showThinking)
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Text(
+                widget.message.thinkingContent!,
+                style: TextStyle(
+                  color: AppTheme.textSecondary,
+                  fontSize: 13,
+                  height: 1.5,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -145,37 +252,62 @@ class _MessageBubbleState extends State<MessageBubble> {
     );
   }
 
-  Widget _buildAvatar(bool isUser) {
+  Widget _buildAvatar(bool isUser, bool isWatson) {
+    final gradient = isUser 
+        ? AppTheme.userMessageGradient 
+        : isWatson 
+            ? const LinearGradient(colors: [Color(0xFFEC4899), Color(0xFFF472B6)])
+            : AppTheme.accentGradient;
+    final shadowColor = isUser 
+        ? AppTheme.primaryColor 
+        : isWatson 
+            ? const Color(0xFFEC4899)
+            : AppTheme.accentColor;
+
     return Container(
       width: 36,
       height: 36,
       decoration: BoxDecoration(
-        gradient: isUser ? AppTheme.userMessageGradient : AppTheme.accentGradient,
+        gradient: gradient,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: (isUser ? AppTheme.primaryColor : AppTheme.accentColor).withValues(alpha: 0.3),
+            color: shadowColor.withValues(alpha: 0.3),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
         ],
       ),
       child: Icon(
-        isUser ? Icons.person_rounded : Icons.auto_awesome,
+        isUser 
+            ? Icons.person_rounded 
+            : isWatson 
+                ? Icons.science_rounded
+                : Icons.auto_awesome,
         color: Colors.white,
         size: 20,
       ),
     );
   }
 
-  Widget _buildMessageContent(BuildContext context, bool isUser) {
+  Widget _buildMessageContent(BuildContext context, bool isUser, bool isWatson) {
+    final bgColor = isUser 
+        ? null 
+        : isWatson 
+            ? const Color(0xFF2D1B3D)
+            : AppTheme.assistantMessageBg;
+    final gradient = isUser ? AppTheme.userMessageGradient : null;
+    final borderColor = isWatson 
+        ? const Color(0xFFEC4899).withValues(alpha: 0.3)
+        : AppTheme.darkBorder;
+
     return Container(
       constraints: BoxConstraints(
         maxWidth: MediaQuery.of(context).size.width * 0.7,
       ),
       decoration: BoxDecoration(
-        gradient: isUser ? AppTheme.userMessageGradient : null,
-        color: isUser ? null : AppTheme.assistantMessageBg,
+        gradient: gradient,
+        color: bgColor,
         borderRadius: BorderRadius.only(
           topLeft: const Radius.circular(20),
           topRight: const Radius.circular(20),
@@ -191,16 +323,54 @@ class _MessageBubbleState extends State<MessageBubble> {
         ],
         border: isUser
             ? null
-            : Border.all(
-                color: AppTheme.darkBorder,
-                width: 1,
-              ),
+            : Border.all(color: borderColor, width: 1),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Watsonラベル
+            if (isWatson) ...[
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.science_rounded,
+                    size: 14,
+                    color: const Color(0xFFF472B6),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Watson',
+                    style: TextStyle(
+                      color: const Color(0xFFF472B6),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  if (widget.message.isHallucinationWarning) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        '⚠️ 確認推奨',
+                        style: TextStyle(
+                          color: Colors.orange.shade300,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 8),
+            ],
+            // メッセージ本文
             if (isUser)
               Text(
                 widget.message.content,
@@ -223,8 +393,17 @@ class _MessageBubbleState extends State<MessageBubble> {
   }
 
   Widget _buildMarkdownContent() {
+    // Artifactのコードブロックは除去して表示
+    String displayContent = widget.message.content;
+    if (_artifacts.isNotEmpty) {
+      displayContent = displayContent
+          .replaceAll(RegExp(r'```html\n[\s\S]*?```'), '[HTMLプレビュー ↓]')
+          .replaceAll(RegExp(r'```css\n[\s\S]*?```'), '')
+          .replaceAll(RegExp(r'```(?:javascript|js)\n[\s\S]*?```'), '');
+    }
+
     return MarkdownBody(
-      data: widget.message.content.isEmpty ? '...' : widget.message.content,
+      data: displayContent.isEmpty ? '...' : displayContent,
       styleSheet: MarkdownStyleSheet(
         p: const TextStyle(
           color: AppTheme.textPrimary,

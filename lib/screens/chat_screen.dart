@@ -9,6 +9,7 @@ import '../../widgets/chat_input.dart';
 import '../../widgets/conversation_drawer.dart';
 import '../../widgets/message_bubble.dart';
 import 'project_screen.dart';
+import 'skill_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -430,6 +431,19 @@ class _ChatScreenState extends State<ChatScreen> {
           },
           onStop: () {
             chatProvider.stopGeneration();
+          },
+          onSkillTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => SkillScreen(
+                  onExecuteSkill: (prompt) {
+                    final systemPrompt = projectProvider.currentSystemPrompt;
+                    chatProvider.sendMessage(prompt, projectSystemPrompt: systemPrompt);
+                  },
+                ),
+              ),
+            );
           },
         );
       },

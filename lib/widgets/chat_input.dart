@@ -6,12 +6,14 @@ class ChatInput extends StatefulWidget {
   final Function(String) onSend;
   final bool isLoading;
   final VoidCallback? onStop;
+  final VoidCallback? onSkillTap;
 
   const ChatInput({
     super.key,
     required this.onSend,
     this.isLoading = false,
     this.onStop,
+    this.onSkillTap,
   });
 
   @override
@@ -49,6 +51,12 @@ class _ChatInputState extends State<ChatInput> {
     }
   }
 
+  /// 外部からテキストを設定（スキル実行用）
+  void setText(String text) {
+    _controller.text = text;
+    _focusNode.requestFocus();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -64,66 +72,119 @@ class _ChatInputState extends State<ChatInput> {
       child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Expanded(
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: AppTheme.darkCard,
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(
-                      color: _focusNode.hasFocus 
-                          ? AppTheme.primaryColor.withOpacity(0.5) 
-                          : AppTheme.darkBorder,
-                    ),
-                    boxShadow: _focusNode.hasFocus
-                        ? [
-                            BoxShadow(
-                              color: AppTheme.primaryColor.withOpacity(0.1),
-                              blurRadius: 12,
-                              spreadRadius: 2,
+              // テキスト入力
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: AppTheme.darkCard,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(
+                          color: _focusNode.hasFocus 
+                              ? AppTheme.primaryColor.withValues(alpha: 0.5) 
+                              : AppTheme.darkBorder,
+                        ),
+                        boxShadow: _focusNode.hasFocus
+                            ? [
+                                BoxShadow(
+                                  color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                                  blurRadius: 12,
+                                  spreadRadius: 2,
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: Focus(
+                        onFocusChange: (hasFocus) {
+                          setState(() {});
+                        },
+                        child: TextField(
+                          controller: _controller,
+                          focusNode: _focusNode,
+                          maxLines: 5,
+                          minLines: 1,
+                          textInputAction: TextInputAction.newline,
+                          keyboardType: TextInputType.multiline,
+                          style: const TextStyle(
+                            color: AppTheme.textPrimary,
+                            fontSize: 15,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: 'メッセージを入力...',
+                            hintStyle: TextStyle(
+                              color: AppTheme.textMuted,
                             ),
-                          ]
-                        : null,
-                  ),
-                  child: Focus(
-                    onFocusChange: (hasFocus) {
-                      setState(() {});
-                    },
-                    child: TextField(
-                      controller: _controller,
-                      focusNode: _focusNode,
-                      maxLines: 5,
-                      minLines: 1,
-                      textInputAction: TextInputAction.newline,
-                      keyboardType: TextInputType.multiline,
-                      style: const TextStyle(
-                        color: AppTheme.textPrimary,
-                        fontSize: 15,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: 'メッセージを入力...',
-                        hintStyle: TextStyle(
-                          color: AppTheme.textMuted,
-                        ),
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 14,
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 14,
+                            ),
+                          ),
+                          onSubmitted: (_) {
+                            if (!HardwareKeyboard.instance.isShiftPressed) {
+                              _handleSubmit();
+                            }
+                          },
                         ),
                       ),
-                      onSubmitted: (_) {
-                        if (!HardwareKeyboard.instance.isShiftPressed) {
-                          _handleSubmit();
-                        }
-                      },
                     ),
                   ),
+                  const SizedBox(width: 12),
+                  _buildSendButton(),
+                ],
+              ),
+              // ボタン行
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  _buildActionChip(
+                    icon: Icons.psychology_alt_rounded,
+                    label: 'スキル',
+                    onTap: widget.onSkillTap,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionChip({
+    required IconData icon,
+    required String label,
+    VoidCallback? onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: AppTheme.darkCard,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppTheme.darkBorder),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 16, color: AppTheme.textSecondary),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  color: AppTheme.textSecondary,
+                  fontSize: 12,
                 ),
               ),
-              const SizedBox(width: 12),
-              _buildSendButton(),
             ],
           ),
         ),
@@ -150,7 +211,7 @@ class _ChatInputState extends State<ChatInput> {
         boxShadow: _hasText
             ? [
                 BoxShadow(
-                  color: AppTheme.primaryColor.withOpacity(0.4),
+                  color: AppTheme.primaryColor.withValues(alpha: 0.4),
                   blurRadius: 12,
                   offset: const Offset(0, 4),
                 ),
@@ -181,7 +242,7 @@ class _ChatInputState extends State<ChatInput> {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.red.withOpacity(0.3),
+            color: Colors.red.withValues(alpha: 0.3),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),

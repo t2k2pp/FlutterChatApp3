@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'providers/chat_provider.dart';
 import 'providers/project_provider.dart';
+import 'providers/watson_provider.dart';
+import 'providers/skill_provider.dart';
 import 'screens/chat_screen.dart';
 import 'theme/app_theme.dart';
 
@@ -19,6 +21,8 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => ProjectProvider()),
         ChangeNotifierProvider(create: (_) => ChatProvider()),
+        ChangeNotifierProvider(create: (_) => WatsonProvider()),
+        ChangeNotifierProvider(create: (_) => SkillProvider()),
       ],
       child: MaterialApp(
         title: 'AI Chat - Llama.cpp',
