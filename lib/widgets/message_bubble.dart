@@ -291,104 +291,135 @@ class _MessageBubbleState extends State<MessageBubble> {
   }
 
   Widget _buildMessageContent(BuildContext context, bool isUser, bool isWatson) {
-    final bgColor = isUser 
-        ? null 
-        : isWatson 
-            ? const Color(0xFF2D1B3D)
-            : AppTheme.assistantMessageBg;
-    final gradient = isUser ? AppTheme.userMessageGradient : null;
-    final borderColor = isWatson 
-        ? const Color(0xFFEC4899).withValues(alpha: 0.3)
-        : AppTheme.darkBorder;
-
-    return Container(
-      constraints: BoxConstraints(
-        maxWidth: MediaQuery.of(context).size.width * 0.7,
-      ),
-      decoration: BoxDecoration(
-        gradient: gradient,
-        color: bgColor,
-        borderRadius: BorderRadius.only(
-          topLeft: const Radius.circular(20),
-          topRight: const Radius.circular(20),
-          bottomLeft: Radius.circular(isUser ? 20 : 4),
-          bottomRight: Radius.circular(isUser ? 4 : 20),
+    // ユーザーメッセージ：バブル表示
+    if (isUser) {
+      return Container(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.75,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+        decoration: BoxDecoration(
+          gradient: AppTheme.userMessageGradient,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(20),
+            topRight: Radius.circular(20),
+            bottomLeft: Radius.circular(20),
+            bottomRight: Radius.circular(4),
           ),
-        ],
-        border: isUser
-            ? null
-            : Border.all(color: borderColor, width: 1),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Watsonラベル
-            if (isWatson) ...[
-              Row(
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: _buildTextContent(),
+        ),
+      );
+    }
+
+    // AI/Watsonメッセージ：全幅表示（バブルなし）
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Watsonラベル
+          if (isWatson)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    Icons.science_rounded,
-                    size: 14,
-                    color: const Color(0xFFF472B6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEC4899).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.science_rounded,
+                          size: 14,
+                          color: const Color(0xFFF472B6),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Watson',
+                          style: TextStyle(
+                            color: const Color(0xFFF472B6),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
+                ],
+              ),
+            ),
+          // メッセージ内容
+          _buildTextContent(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTextContent() {
+    final isUser = widget.message.role == MessageRole.user;
+    
+    if (isUser) {
+      return Text(
+        widget.message.content,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 15,
+          height: 1.5,
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ハルシネーション警告
+        if (widget.message.isHallucinationWarning)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.warning_rounded, size: 14, color: Colors.orange.shade300),
                   const SizedBox(width: 6),
                   Text(
-                    'Watson',
+                    '確認推奨',
                     style: TextStyle(
-                      color: const Color(0xFFF472B6),
+                      color: Colors.orange.shade300,
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  if (widget.message.isHallucinationWarning) ...[
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        '⚠️ 確認推奨',
-                        style: TextStyle(
-                          color: Colors.orange.shade300,
-                          fontSize: 10,
-                        ),
-                      ),
-                    ),
-                  ],
                 ],
               ),
-              const SizedBox(height: 8),
-            ],
-            // メッセージ本文
-            if (isUser)
-              Text(
-                widget.message.content,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 15,
-                  height: 1.5,
-                ),
-              )
-            else
-              _buildMarkdownContent(),
-            if (widget.message.isStreaming) ...[
-              const SizedBox(height: 8),
-              _buildTypingIndicator(),
-            ],
-          ],
-        ),
-      ),
+            ),
+          ),
+        _buildMarkdownContent(),
+        if (widget.message.isStreaming) ...[
+          const SizedBox(height: 8),
+          _buildTypingIndicator(),
+        ],
+      ],
     );
   }
 
