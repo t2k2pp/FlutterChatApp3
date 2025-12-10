@@ -50,7 +50,7 @@ class AzureClaudeProvider implements LlmProvider {
     
     final body = <String, dynamic>{
       'model': config.model ?? 'claude-3-5-sonnet-20241022',
-      'max_tokens': 4096,
+      'max_tokens': config.effectiveMaxTokens,
       'messages': apiMessages,
     };
     
@@ -83,7 +83,7 @@ class AzureClaudeProvider implements LlmProvider {
     
     final body = <String, dynamic>{
       'model': config.model ?? 'claude-3-5-sonnet-20241022',
-      'max_tokens': 4096,
+      'max_tokens': config.effectiveMaxTokens,
       'messages': apiMessages,
       'stream': true,
     };

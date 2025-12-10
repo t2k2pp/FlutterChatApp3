@@ -46,7 +46,7 @@ class ClaudeProvider implements LlmProvider {
       },
       body: jsonEncode({
         'model': config.model ?? 'claude-3-5-sonnet-20241022',
-        'max_tokens': 4096,
+        'max_tokens': config.effectiveMaxTokens,
         if (systemPrompt != null) 'system': systemPrompt,
         'messages': userMessages.map(_toClaudeFormat).toList(),
       }),
@@ -83,7 +83,7 @@ class ClaudeProvider implements LlmProvider {
     });
     request.body = jsonEncode({
       'model': config.model ?? 'claude-3-5-sonnet-20241022',
-      'max_tokens': 4096,
+      'max_tokens': config.effectiveMaxTokens,
       'stream': true,
       if (systemPrompt != null) 'system': systemPrompt,
       'messages': userMessages.map(_toClaudeFormat).toList(),

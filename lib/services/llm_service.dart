@@ -22,7 +22,6 @@ class LlmService {
       'messages': messages.map((m) => m.toApiFormat()).toList(),
       'stream': true,
       'temperature': 0.7,
-      'max_tokens': 2048,
     });
 
     try {
@@ -73,7 +72,6 @@ class LlmService {
       'messages': messages.map((m) => m.toApiFormat()).toList(),
       'stream': false,
       'temperature': 0.7,
-      'max_tokens': 2048,
     });
 
     try {

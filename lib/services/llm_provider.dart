@@ -19,6 +19,8 @@ class LlmProviderConfig {
   final String? model;
   final String? deploymentName;  // Azure用デプロイメント名
   final String? apiVersion;      // Azure用APIバージョン
+  final int? maxTokens;          // 最大出力トークン数
+  final bool useMaxTokens;       // max_tokensを使用するか（オプションのAPI用）
   final Map<String, dynamic>? options;
 
   const LlmProviderConfig({
@@ -29,8 +31,21 @@ class LlmProviderConfig {
     this.model,
     this.deploymentName,
     this.apiVersion,
+    this.maxTokens = 8192,
+    this.useMaxTokens = false,  // デフォルトOFF（オプションのAPI用）
     this.options,
   });
+
+  /// max_tokensが必須かどうか（Claude系）
+  bool get isMaxTokensRequired => type == LlmProviderType.claude || type == LlmProviderType.azureClaude;
+
+  /// 実際に使用するmax_tokens値
+  int? get effectiveMaxTokens {
+    if (isMaxTokensRequired) {
+      return maxTokens ?? 8192;  // Claude系は必須なのでデフォルト値を返す
+    }
+    return useMaxTokens ? maxTokens : null;  // オプションの場合はuseMaxTokensに従う
+  }
 
   LlmProviderConfig copyWith({
     LlmProviderType? type,
@@ -40,6 +55,8 @@ class LlmProviderConfig {
     String? model,
     String? deploymentName,
     String? apiVersion,
+    int? maxTokens,
+    bool? useMaxTokens,
     Map<String, dynamic>? options,
   }) {
     return LlmProviderConfig(
@@ -50,6 +67,8 @@ class LlmProviderConfig {
       model: model ?? this.model,
       deploymentName: deploymentName ?? this.deploymentName,
       apiVersion: apiVersion ?? this.apiVersion,
+      maxTokens: maxTokens ?? this.maxTokens,
+      useMaxTokens: useMaxTokens ?? this.useMaxTokens,
       options: options ?? this.options,
     );
   }
@@ -62,6 +81,8 @@ class LlmProviderConfig {
     'model': model,
     'deploymentName': deploymentName,
     'apiVersion': apiVersion,
+    'maxTokens': maxTokens,
+    'useMaxTokens': useMaxTokens,
     'options': options,
   };
 
@@ -77,6 +98,8 @@ class LlmProviderConfig {
       model: json['model'],
       deploymentName: json['deploymentName'],
       apiVersion: json['apiVersion'],
+      maxTokens: json['maxTokens'] as int? ?? 8192,
+      useMaxTokens: json['useMaxTokens'] as bool? ?? false,
       options: json['options'] as Map<String, dynamic>?,
     );
   }

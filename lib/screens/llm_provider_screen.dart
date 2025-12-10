@@ -261,56 +261,91 @@ class LlmProviderScreen extends StatelessWidget {
     final modelController = TextEditingController(text: config.model ?? '');
     final deploymentController = TextEditingController(text: config.deploymentName ?? '');
     final apiVersionController = TextEditingController(text: config.apiVersion ?? '2024-02-15-preview');
+    final maxTokensController = TextEditingController(text: (config.maxTokens ?? 8192).toString());
     final isAzure = config.type == LlmProviderType.azureOpenai;
+    final isClaude = config.type == LlmProviderType.claude || config.type == LlmProviderType.azureClaude;
+    bool useMaxTokens = config.useMaxTokens;
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.darkCard,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('${config.name}を編集', style: const TextStyle(color: AppTheme.textPrimary)),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildTextField(nameController, '表示名', Icons.label),
-              const SizedBox(height: 16),
-              _buildTextField(urlController, isAzure ? 'リソースURL' : 'API URL', Icons.link),
-              const SizedBox(height: 16),
-              _buildTextField(keyController, 'APIキー', Icons.key, obscure: true),
-              const SizedBox(height: 16),
-              if (isAzure) ...[
-                _buildTextField(deploymentController, 'デプロイメント名', Icons.rocket_launch),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: AppTheme.darkCard,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text('${config.name}を編集', style: const TextStyle(color: AppTheme.textPrimary)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildTextField(nameController, '表示名', Icons.label),
                 const SizedBox(height: 16),
-                _buildTextField(apiVersionController, 'APIバージョン', Icons.history),
-              ] else
-                _buildTextField(modelController, 'モデル', Icons.smart_toy),
-            ],
+                _buildTextField(urlController, isAzure ? 'リソースURL' : 'API URL', Icons.link),
+                const SizedBox(height: 16),
+                _buildTextField(keyController, 'APIキー', Icons.key, obscure: true),
+                const SizedBox(height: 16),
+                if (isAzure) ...[
+                  _buildTextField(deploymentController, 'デプロイメント名', Icons.rocket_launch),
+                  const SizedBox(height: 16),
+                  _buildTextField(apiVersionController, 'APIバージョン', Icons.history),
+                ] else
+                  _buildTextField(modelController, 'モデル', Icons.smart_toy),
+                const SizedBox(height: 16),
+                // max_tokens設定
+                if (isClaude) ...[
+                  // Claude系は必須なので入力欄のみ
+                  _buildTextField(maxTokensController, '最大出力トークン (必須)', Icons.data_usage),
+                ] else ...[
+                  // OpenAI系はON/OFF + 入力欄
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '最大トークン制限',
+                          style: TextStyle(color: AppTheme.textSecondary, fontSize: 14),
+                        ),
+                      ),
+                      Switch(
+                        value: useMaxTokens,
+                        onChanged: (v) => setDialogState(() => useMaxTokens = v),
+                        activeColor: AppTheme.primaryColor,
+                      ),
+                    ],
+                  ),
+                  if (useMaxTokens) ...[
+                    const SizedBox(height: 8),
+                    _buildTextField(maxTokensController, '最大出力トークン', Icons.data_usage),
+                  ],
+                ],
+              ],
+            ),
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('キャンセル', style: TextStyle(color: AppTheme.textMuted)),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final maxTokens = int.tryParse(maxTokensController.text.trim()) ?? 8192;
+                manager.updateProvider(
+                  index,
+                  config.copyWith(
+                    name: nameController.text.trim(),
+                    baseUrl: urlController.text.trim(),
+                    apiKey: keyController.text.trim().isEmpty ? null : keyController.text.trim(),
+                    model: modelController.text.trim().isEmpty ? null : modelController.text.trim(),
+                    deploymentName: deploymentController.text.trim().isEmpty ? null : deploymentController.text.trim(),
+                    apiVersion: apiVersionController.text.trim().isEmpty ? null : apiVersionController.text.trim(),
+                    maxTokens: maxTokens,
+                    useMaxTokens: useMaxTokens,
+                  ),
+                );
+                Navigator.pop(context);
+              },
+              child: const Text('保存'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('キャンセル', style: TextStyle(color: AppTheme.textMuted)),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              manager.updateProvider(
-                index,
-                config.copyWith(
-                  name: nameController.text.trim(),
-                  baseUrl: urlController.text.trim(),
-                  apiKey: keyController.text.trim().isEmpty ? null : keyController.text.trim(),
-                  model: modelController.text.trim().isEmpty ? null : modelController.text.trim(),
-                  deploymentName: deploymentController.text.trim().isEmpty ? null : deploymentController.text.trim(),
-                  apiVersion: apiVersionController.text.trim().isEmpty ? null : apiVersionController.text.trim(),
-                ),
-              );
-              Navigator.pop(context);
-            },
-            child: const Text('保存'),
-          ),
-        ],
       ),
     );
   }

@@ -47,14 +47,18 @@ class AzureOpenAIProvider implements LlmProvider {
   Future<String> getChatCompletion(List<Message> messages) async {
     final apiMessages = _convertMessages(messages);
     
+    final body = <String, dynamic>{
+      'messages': apiMessages,
+      'temperature': 0.7,
+    };
+    if (config.effectiveMaxTokens != null) {
+      body['max_tokens'] = config.effectiveMaxTokens;
+    }
+    
     final response = await http.post(
       Uri.parse(_chatEndpoint),
       headers: _headers,
-      body: jsonEncode({
-        'messages': apiMessages,
-        'max_tokens': 4096,
-        'temperature': 0.7,
-      }),
+      body: jsonEncode(body),
     );
 
     if (response.statusCode != 200) {
@@ -69,14 +73,18 @@ class AzureOpenAIProvider implements LlmProvider {
   Stream<String> streamChatCompletion(List<Message> messages) async* {
     final apiMessages = _convertMessages(messages);
     
-    final request = http.Request('POST', Uri.parse(_chatEndpoint));
-    request.headers.addAll(_headers);
-    request.body = jsonEncode({
+    final body = <String, dynamic>{
       'messages': apiMessages,
-      'max_tokens': 4096,
       'temperature': 0.7,
       'stream': true,
-    });
+    };
+    if (config.effectiveMaxTokens != null) {
+      body['max_tokens'] = config.effectiveMaxTokens;
+    }
+    
+    final request = http.Request('POST', Uri.parse(_chatEndpoint));
+    request.headers.addAll(_headers);
+    request.body = jsonEncode(body);
 
     final client = http.Client();
     try {
