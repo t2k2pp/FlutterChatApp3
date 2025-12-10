@@ -84,8 +84,6 @@ class _MessageBubbleState extends State<MessageBubble> {
             mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (!isUser) _buildAvatar(isUser, isWatson),
-              if (!isUser) const SizedBox(width: 12),
               Flexible(
                 child: Column(
                   crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
@@ -109,8 +107,6 @@ class _MessageBubbleState extends State<MessageBubble> {
                   ],
                 ),
               ),
-              if (isUser) const SizedBox(width: 12),
-              if (isUser) _buildAvatar(isUser, isWatson),
             ],
           ),
         ),
