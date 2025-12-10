@@ -3,8 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../providers/chat_provider.dart';
 import '../../providers/llm_provider_manager.dart';
+import '../../providers/watson_provider.dart';
 import '../../services/export_service.dart';
 import '../../screens/llm_provider_screen.dart';
+import '../../screens/watson_settings_screen.dart';
 import '../../theme/app_theme.dart';
 
 class ConversationDrawer extends StatelessWidget {
@@ -476,6 +478,25 @@ class ConversationDrawer extends StatelessWidget {
                           Navigator.push(
                             context,
                             MaterialPageRoute(builder: (_) => const LlmProviderScreen()),
+                          );
+                        },
+                      ),
+                      IconButton(
+                        icon: Consumer<WatsonProvider>(
+                          builder: (context, watson, _) => Icon(
+                            Icons.psychology_outlined,
+                            color: watson.config.enabled 
+                                ? AppTheme.accentColor 
+                                : AppTheme.textSecondary,
+                            size: 22,
+                          ),
+                        ),
+                        tooltip: 'Watson設定',
+                        onPressed: () {
+                          Navigator.pop(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const WatsonSettingsScreen()),
                           );
                         },
                       ),
