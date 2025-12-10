@@ -20,7 +20,7 @@ class LlmProviderConfig {
   final String? deploymentName;  // Azure用デプロイメント名
   final String? apiVersion;      // Azure用APIバージョン
   final int? maxTokens;          // 最大出力トークン数
-  final bool useMaxTokens;       // max_tokensを使用するか（オプションのAPI用）
+  final bool? _useMaxTokens;     // max_tokensを使用するか（オプションのAPI用）
   final Map<String, dynamic>? options;
 
   const LlmProviderConfig({
@@ -32,9 +32,12 @@ class LlmProviderConfig {
     this.deploymentName,
     this.apiVersion,
     this.maxTokens = 8192,
-    this.useMaxTokens = false,  // デフォルトOFF（オプションのAPI用）
+    bool? useMaxTokens,
     this.options,
-  });
+  }) : _useMaxTokens = useMaxTokens;
+
+  /// max_tokensを使用するか（デフォルトはfalse）
+  bool get useMaxTokens => _useMaxTokens ?? false;
 
   /// max_tokensが必須かどうか（Claude系）
   bool get isMaxTokensRequired => type == LlmProviderType.claude || type == LlmProviderType.azureClaude;
