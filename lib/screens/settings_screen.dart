@@ -311,7 +311,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               maxLines: 4,
               style: const TextStyle(color: AppTheme.textPrimary, fontSize: 14),
               decoration: _buildInputDecoration('AIへの指示（全会話に適用）', Icons.edit_note),
-              onChanged: (v) => chatProvider.setSystemPrompt(v),
+              onChanged: (v) => chatProvider.updateSettings(systemPrompt: v),
             ),
           ],
         );
