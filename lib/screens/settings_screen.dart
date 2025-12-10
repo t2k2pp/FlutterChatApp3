@@ -238,10 +238,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const SizedBox(height: 12),
               // 起動ワード
-              _buildInfoRow(
-                label: '起動ワード',
-                value: config.activationWords.take(3).join(', ') +
-                    (config.activationWords.length > 3 ? '...' : ''),
+              InkWell(
+                onTap: () => _showActivationWordsDialog(context, watson, config),
+                child: _buildInfoRow(
+                  label: '起動ワード',
+                  value: config.activationWords.take(3).join(', ') +
+                      (config.activationWords.length > 3 ? '...' : ''),
+                  trailing: const Icon(Icons.edit, size: 16, color: AppTheme.textMuted),
+                ),
               ),
             ],
           ],
@@ -416,5 +420,89 @@ class _SettingsScreenState extends State<SettingsScreen> {
       case WatsonInterruptLevel.proactive:
         return '積極的';
     }
+  }
+
+  void _showActivationWordsDialog(
+    BuildContext context,
+    WatsonProvider watson,
+    WatsonConfig config,
+  ) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppTheme.darkCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('起動ワード', style: TextStyle(color: AppTheme.textPrimary)),
+        content: StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'これらの言葉を含むメッセージでWatsonを呼び出せます',
+                  style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
+                ),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    ...config.activationWords.map((word) {
+                      return Chip(
+                        label: Text(word, style: const TextStyle(fontSize: 13)),
+                        backgroundColor: AppTheme.darkBackground,
+                        side: const BorderSide(color: AppTheme.darkBorder),
+                        deleteIcon: const Icon(Icons.close, size: 16),
+                        onDeleted: () {
+                          final newWords = config.activationWords
+                              .where((w) => w != word)
+                              .toList();
+                          watson.setActivationWords(newWords);
+                          setDialogState(() {});
+                        },
+                      );
+                    }),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        style: const TextStyle(color: AppTheme.textPrimary, fontSize: 14),
+                        decoration: InputDecoration(
+                          hintText: '新しい起動ワード',
+                          hintStyle: TextStyle(color: AppTheme.textMuted),
+                          filled: true,
+                          fillColor: AppTheme.darkBackground,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                        onSubmitted: (value) {
+                          if (value.trim().isNotEmpty && !config.activationWords.contains(value.trim())) {
+                            watson.setActivationWords([...config.activationWords, value.trim()]);
+                            setDialogState(() {});
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            );
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('閉じる'),
+          ),
+        ],
+      ),
+    );
   }
 }
