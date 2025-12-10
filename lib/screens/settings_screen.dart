@@ -1,0 +1,420 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../models/watson_config.dart';
+import '../providers/chat_provider.dart';
+import '../providers/llm_provider_manager.dart';
+import '../providers/watson_provider.dart';
+import '../providers/search_provider.dart';
+import '../services/llm_provider.dart';
+import '../theme/app_theme.dart';
+import 'llm_provider_screen.dart';
+
+class SettingsScreen extends StatefulWidget {
+  const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  late TextEditingController _systemPromptController;
+  late TextEditingController _searxngUrlController;
+
+  @override
+  void initState() {
+    super.initState();
+    final chatProvider = context.read<ChatProvider>();
+    final searchProvider = context.read<SearchProvider>();
+    _systemPromptController = TextEditingController(text: chatProvider.systemPrompt);
+    _searxngUrlController = TextEditingController(text: searchProvider.searxngUrl);
+  }
+
+  @override
+  void dispose() {
+    _systemPromptController.dispose();
+    _searxngUrlController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppTheme.darkBackground,
+      appBar: AppBar(
+        backgroundColor: AppTheme.darkSurface,
+        title: const Text('設定'),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          // LLMプロバイダー
+          _buildSectionCard(
+            icon: Icons.cloud_outlined,
+            iconColor: AppTheme.primaryColor,
+            title: 'LLMプロバイダー',
+            child: _buildLlmProviderSection(),
+          ),
+          const SizedBox(height: 16),
+
+          // Watson
+          _buildSectionCard(
+            icon: Icons.psychology,
+            iconColor: AppTheme.accentColor,
+            title: 'Watson（AIアシスタント補佐）',
+            child: _buildWatsonSection(),
+          ),
+          const SizedBox(height: 16),
+
+          // 検索
+          _buildSectionCard(
+            icon: Icons.search,
+            iconColor: Colors.blue,
+            title: 'Web検索',
+            child: _buildSearchSection(),
+          ),
+          const SizedBox(height: 16),
+
+          // システムプロンプト
+          _buildSectionCard(
+            icon: Icons.edit_note,
+            iconColor: Colors.orange,
+            title: 'システムプロンプト',
+            child: _buildSystemPromptSection(),
+          ),
+          const SizedBox(height: 16),
+
+          // バージョン情報
+          _buildVersionInfo(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionCard({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required Widget child,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.darkCard,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.darkBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: iconColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, color: iconColor, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: AppTheme.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1, color: AppTheme.darkBorder),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: child,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLlmProviderSection() {
+    return Consumer<LlmProviderManager>(
+      builder: (context, manager, _) {
+        final current = manager.currentConfig;
+        return Column(
+          children: [
+            // 現在のプロバイダー
+            _buildInfoRow(
+              label: '現在のプロバイダー',
+              value: current?.name ?? '未設定',
+              trailing: Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  color: manager.isConnected ? Colors.green : Colors.red,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+            if (current?.model != null)
+              _buildInfoRow(label: 'モデル', value: current!.model!),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const LlmProviderScreen()),
+                  );
+                },
+                icon: const Icon(Icons.edit, size: 18),
+                label: const Text('プロバイダーを管理'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.textSecondary,
+                  side: const BorderSide(color: AppTheme.darkBorder),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildWatsonSection() {
+    return Consumer2<WatsonProvider, LlmProviderManager>(
+      builder: (context, watson, llmManager, _) {
+        final config = watson.config;
+        return Column(
+          children: [
+            // Watson有効/無効
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Watson', style: TextStyle(color: AppTheme.textPrimary)),
+                Switch(
+                  value: config.enabled,
+                  onChanged: (v) => watson.updateConfig(config.copyWith(enabled: v)),
+                  activeColor: AppTheme.accentColor,
+                ),
+              ],
+            ),
+            if (config.enabled) ...[
+              const SizedBox(height: 12),
+              // 介入レベル
+              _buildDropdown<WatsonInterruptLevel>(
+                label: '介入レベル',
+                value: config.interruptLevel,
+                items: WatsonInterruptLevel.values.map((level) {
+                  return DropdownMenuItem(
+                    value: level,
+                    child: Text(_getInterruptLevelName(level)),
+                  );
+                }).toList(),
+                onChanged: (v) => watson.setInterruptLevel(v!),
+              ),
+              const SizedBox(height: 12),
+              // 使用モデル
+              _buildDropdown<int?>(
+                label: '使用モデル',
+                value: config.providerIndex,
+                items: [
+                  const DropdownMenuItem(
+                    value: null,
+                    child: Text('メインAIと同じ'),
+                  ),
+                  ...llmManager.providers.asMap().entries.map((e) {
+                    return DropdownMenuItem(
+                      value: e.key,
+                      child: Text(e.value.name),
+                    );
+                  }),
+                ],
+                onChanged: (v) => watson.setProviderIndex(v),
+              ),
+              const SizedBox(height: 12),
+              // 起動ワード
+              _buildInfoRow(
+                label: '起動ワード',
+                value: config.activationWords.take(3).join(', ') +
+                    (config.activationWords.length > 3 ? '...' : ''),
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildSearchSection() {
+    return Consumer<SearchProvider>(
+      builder: (context, searchProvider, _) {
+        return Column(
+          children: [
+            // Web検索有効/無効
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Web検索', style: TextStyle(color: AppTheme.textPrimary)),
+                Switch(
+                  value: searchProvider.isEnabled,
+                  onChanged: (v) => searchProvider.setEnabled(v),
+                  activeColor: Colors.blue,
+                ),
+              ],
+            ),
+            if (searchProvider.isEnabled) ...[
+              const SizedBox(height: 12),
+              TextField(
+                controller: _searxngUrlController,
+                style: const TextStyle(color: AppTheme.textPrimary, fontSize: 14),
+                decoration: _buildInputDecoration('SearXNG URL', Icons.link),
+                onChanged: (v) => searchProvider.setSearxngUrl(v),
+              ),
+              const SizedBox(height: 12),
+              // DeepSearch
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('DeepSearch', style: TextStyle(color: AppTheme.textPrimary)),
+                  Switch(
+                    value: searchProvider.deepSearchEnabled,
+                    onChanged: (v) => searchProvider.setDeepSearchEnabled(v),
+                    activeColor: Colors.blue,
+                  ),
+                ],
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildSystemPromptSection() {
+    return Consumer<ChatProvider>(
+      builder: (context, chatProvider, _) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'グローバルシステムプロンプト',
+              style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _systemPromptController,
+              maxLines: 4,
+              style: const TextStyle(color: AppTheme.textPrimary, fontSize: 14),
+              decoration: _buildInputDecoration('AIへの指示（全会話に適用）', Icons.edit_note),
+              onChanged: (v) => chatProvider.setSystemPrompt(v),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildVersionInfo() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Text(
+              'Flutter AI Chat App',
+              style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'v1.0.0',
+              style: TextStyle(color: AppTheme.textMuted, fontSize: 11),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow({
+    required String label,
+    required String value,
+    Widget? trailing,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: TextStyle(color: AppTheme.textMuted, fontSize: 13)),
+          Row(
+            children: [
+              Text(
+                value,
+                style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13),
+              ),
+              if (trailing != null) ...[
+                const SizedBox(width: 8),
+                trailing,
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDropdown<T>({
+    required String label,
+    required T value,
+    required List<DropdownMenuItem<T>> items,
+    required ValueChanged<T?> onChanged,
+  }) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: TextStyle(color: AppTheme.textMuted, fontSize: 13)),
+        DropdownButton<T>(
+          value: value,
+          items: items,
+          onChanged: onChanged,
+          dropdownColor: AppTheme.darkCard,
+          style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13),
+          underline: const SizedBox(),
+        ),
+      ],
+    );
+  }
+
+  InputDecoration _buildInputDecoration(String hint, IconData icon) {
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: TextStyle(color: AppTheme.textMuted),
+      prefixIcon: Icon(icon, color: AppTheme.textMuted, size: 20),
+      filled: true,
+      fillColor: AppTheme.darkBackground,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+    );
+  }
+
+  String _getInterruptLevelName(WatsonInterruptLevel level) {
+    switch (level) {
+      case WatsonInterruptLevel.off:
+        return 'OFF';
+      case WatsonInterruptLevel.passive:
+        return '消極的';
+      case WatsonInterruptLevel.normal:
+        return '普通';
+      case WatsonInterruptLevel.proactive:
+        return '積極的';
+    }
+  }
+}

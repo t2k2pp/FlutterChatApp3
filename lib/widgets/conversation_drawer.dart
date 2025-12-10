@@ -3,10 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../providers/chat_provider.dart';
 import '../../providers/llm_provider_manager.dart';
-import '../../providers/watson_provider.dart';
 import '../../services/export_service.dart';
-import '../../screens/llm_provider_screen.dart';
-import '../../screens/watson_settings_screen.dart';
+import '../../screens/settings_screen.dart';
 import '../../theme/app_theme.dart';
 
 class ConversationDrawer extends StatelessWidget {
@@ -468,47 +466,17 @@ class ConversationDrawer extends StatelessWidget {
                       ),
                       IconButton(
                         icon: const Icon(
-                          Icons.cloud_outlined,
-                          color: AppTheme.textSecondary,
-                          size: 22,
-                        ),
-                        tooltip: 'LLMプロバイダー',
-                        onPressed: () {
-                          Navigator.pop(context);
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const LlmProviderScreen()),
-                          );
-                        },
-                      ),
-                      IconButton(
-                        icon: Consumer<WatsonProvider>(
-                          builder: (context, watson, _) => Icon(
-                            Icons.psychology_outlined,
-                            color: watson.config.enabled 
-                                ? AppTheme.accentColor 
-                                : AppTheme.textSecondary,
-                            size: 22,
-                          ),
-                        ),
-                        tooltip: 'Watson設定',
-                        onPressed: () {
-                          Navigator.pop(context);
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const WatsonSettingsScreen()),
-                          );
-                        },
-                      ),
-                      IconButton(
-                        icon: const Icon(
                           Icons.settings_outlined,
                           color: AppTheme.textSecondary,
-                          size: 22,
+                          size: 24,
                         ),
+                        tooltip: '設定',
                         onPressed: () {
                           Navigator.pop(context);
-                          _showSettingsDialog(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                          );
                         },
                       ),
                     ],
@@ -540,117 +508,6 @@ class ConversationDrawer extends StatelessWidget {
         backgroundColor: AppTheme.primaryColor,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
-  }
-
-  void _showSettingsDialog(BuildContext context) {
-    final provider = context.read<ChatProvider>();
-    final apiUrlController = TextEditingController(text: provider.apiUrl);
-    final systemPromptController = TextEditingController(text: provider.systemPrompt);
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.darkCard,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                gradient: AppTheme.primaryGradient,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(
-                Icons.settings,
-                color: Colors.white,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 12),
-            const Text(
-              '設定',
-              style: TextStyle(color: AppTheme.textPrimary),
-            ),
-          ],
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'API URL',
-                style: TextStyle(
-                  color: AppTheme.textSecondary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: apiUrlController,
-                style: const TextStyle(color: AppTheme.textPrimary),
-                decoration: InputDecoration(
-                  hintText: 'http://192.168.1.24:11437/v1',
-                  prefixIcon: const Icon(Icons.link, color: AppTheme.textMuted),
-                  filled: true,
-                  fillColor: AppTheme.darkBackground,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                'システムプロンプト',
-                style: TextStyle(
-                  color: AppTheme.textSecondary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: systemPromptController,
-                maxLines: 4,
-                style: const TextStyle(color: AppTheme.textPrimary),
-                decoration: InputDecoration(
-                  hintText: 'AIへの指示を入力（オプション）',
-                  filled: true,
-                  fillColor: AppTheme.darkBackground,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'キャンセル',
-              style: TextStyle(color: AppTheme.textMuted),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              provider.updateSettings(
-                apiUrl: apiUrlController.text,
-                systemPrompt: systemPromptController.text,
-              );
-              Navigator.pop(context);
-            },
-            child: const Text('保存'),
-          ),
-        ],
       ),
     );
   }

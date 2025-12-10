@@ -18,6 +18,8 @@ class SearchProvider extends ChangeNotifier {
   bool _isConnected = false;
   String? _error;
   String _progress = '';
+  bool _isEnabled = true;
+  bool _deepSearchEnabled = false;
 
   // Getters
   SearchConfig get config => _config;
@@ -28,6 +30,9 @@ class SearchProvider extends ChangeNotifier {
   bool get isConnected => _isConnected;
   String? get error => _error;
   String get progress => _progress;
+  bool get isEnabled => _isEnabled;
+  bool get deepSearchEnabled => _deepSearchEnabled;
+  String get searxngUrl => _config.baseUrl;
 
   SearchProvider() {
     _initialize();
@@ -70,6 +75,24 @@ class SearchProvider extends ChangeNotifier {
     await testConnection();
     notifyListeners();
   }
+
+  /// 検索の有効/無効を設定
+  void setEnabled(bool value) {
+    _isEnabled = value;
+    notifyListeners();
+  }
+
+  /// DeepSearchの有効/無効を設定
+  void setDeepSearchEnabled(bool value) {
+    _deepSearchEnabled = value;
+    notifyListeners();
+  }
+
+  /// SearXNG URLを設定
+  Future<void> setSearxngUrl(String url) async {
+    await updateConfig(_config.copyWith(baseUrl: url));
+  }
+
 
   /// 接続テスト
   Future<void> testConnection() async {
