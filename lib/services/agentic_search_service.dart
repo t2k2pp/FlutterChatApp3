@@ -149,27 +149,31 @@ class AgenticSearchService {
       final response = await _llm.getChatCompletion([
         Message(
           role: MessageRole.system,
-          content: '''あなたは情報収集の必要性を判断する専門家です。
-ユーザーの質問に対して、Web検索が必要かどうかを判断してください。
+          content: '''あなたは検索の必要性を判断する専門家です。
 
-以下のJSON形式で回答してください:
-{
-  "needs_search": true/false,
-  "reason": "理由",
-  "search_query": "検索クエリ（必要な場合）"
-}
+ユーザーのメッセージに対して、Web検索が必要かどうかを判断してください。
 
-Web検索が必要なケース:
-- 最新のニュース・時事情報
-- 特定の事実・データの確認
-- 知識のカットオフ後の情報
-- 専門的・技術的な詳細情報
+【検索が有効なケース】
+- 正確に回答できる自信がない場合
+- 最新情報や時事ニュースが必要な場合
+- ユーザーから調査・検索を求められた場合
+- 創作でアイデアを拾いたい場合
+- 最新ライブラリの知識が必要な場合
 
-Web検索が不要なケース:
-- 一般的な挨拶・雑談
-- プログラミングの基本的な質問
-- 意見・アドバイスを求める質問
-- 創作・文章作成の依頼''',
+【検索が不要なケース】
+- 挨拶や雑談
+- 文章の修正依頼（構造化、敬語、誤字脱字チェック）
+- 「検索せずに答えて」と言われた場合
+- 一般的な知識で回答できる場合
+
+【回答フォーマット】
+検索が必要な場合：
+{"needsSearch": true, "query": "検索キーワード"}
+
+検索が不要な場合：
+{"needsSearch": false}
+
+※必ずJSON形式のみで回答してください。説明文は不要です。''',
         ),
         Message(
           role: MessageRole.user,
@@ -182,9 +186,9 @@ Web検索が不要なケース:
       if (jsonMatch != null) {
         final json = _parseSimpleJson(jsonMatch.group(0)!);
         return _SearchNeedAnalysis(
-          needed: json['needs_search'] == true || json['needs_search'] == 'true',
+          needed: json['needsSearch'] == true || json['needsSearch'] == 'true',
           reason: json['reason'] as String?,
-          suggestedQuery: json['search_query'] as String?,
+          suggestedQuery: json['query'] as String?,
         );
       }
 
@@ -213,23 +217,32 @@ Web検索が不要なケース:
     try {
       final result = <String, dynamic>{};
       
-      // needs_search抽出
-      if (jsonStr.contains('"needs_search": true') || jsonStr.contains('"needs_search":true')) {
-        result['needs_search'] = true;
-      } else if (jsonStr.contains('"needs_search": false') || jsonStr.contains('"needs_search":false')) {
-        result['needs_search'] = false;
+      // needsSearch抽出（キャメルケース対応）
+      if (jsonStr.contains('"needsSearch": true') || jsonStr.contains('"needsSearch":true')) {
+        result['needsSearch'] = true;
+      } else if (jsonStr.contains('"needsSearch": false') || jsonStr.contains('"needsSearch":false')) {
+        result['needsSearch'] = false;
+      }
+      // 旧形式（スネークケース）もフォールバック対応
+      if (!result.containsKey('needsSearch')) {
+        if (jsonStr.contains('"needs_search": true') || jsonStr.contains('"needs_search":true')) {
+          result['needsSearch'] = true;
+        } else if (jsonStr.contains('"needs_search": false') || jsonStr.contains('"needs_search":false')) {
+          result['needsSearch'] = false;
+        }
       }
       
-      // reason抽出
-      final reasonMatch = RegExp(r'"reason"\s*:\s*"([^"]*)"').firstMatch(jsonStr);
-      if (reasonMatch != null) {
-        result['reason'] = reasonMatch.group(1);
-      }
-      
-      // search_query抽出
-      final queryMatch = RegExp(r'"search_query"\s*:\s*"([^"]*)"').firstMatch(jsonStr);
+      // query抽出
+      final queryMatch = RegExp(r'"query"\s*:\s*"([^"]*)"').firstMatch(jsonStr);
       if (queryMatch != null) {
-        result['search_query'] = queryMatch.group(1);
+        result['query'] = queryMatch.group(1);
+      }
+      // 旧形式もフォールバック
+      if (!result.containsKey('query')) {
+        final oldQueryMatch = RegExp(r'"search_query"\s*:\s*"([^"]*)"').firstMatch(jsonStr);
+        if (oldQueryMatch != null) {
+          result['query'] = oldQueryMatch.group(1);
+        }
       }
 
       return result;
