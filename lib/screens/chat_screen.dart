@@ -23,7 +23,7 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   final ScrollController _scrollController = ScrollController();
-  bool _isSearchEnabled = false;
+  SearchMode _searchMode = SearchMode.simple;
 
   @override
   void dispose() {
@@ -428,23 +428,34 @@ class _ChatScreenState extends State<ChatScreen> {
       builder: (context, chatProvider, projectProvider, searchProvider, skillProvider, child) {
         return ChatInput(
           isLoading: chatProvider.isLoading,
-          isSearchEnabled: _isSearchEnabled,
+          searchMode: _searchMode,
           onSend: (text) async {
             final systemPrompt = projectProvider.currentSystemPrompt;
             final skillContext = skillProvider.getActiveSkillsContext();
             
-            if (_isSearchEnabled) {
-              // Web検索を実行してからメッセージを送信
-              await _sendWithSearch(text, chatProvider, searchProvider, systemPrompt, skillContext);
-            } else {
-              chatProvider.sendMessage(text, projectSystemPrompt: systemPrompt, skillContext: skillContext);
+            switch (_searchMode) {
+              case SearchMode.simple:
+                // 簡易検索
+                await _sendWithSearch(text, chatProvider, searchProvider, systemPrompt, skillContext);
+                break;
+              case SearchMode.deep:
+                // 詳細検索
+                await _sendWithDeepSearch(text, chatProvider, searchProvider, systemPrompt, skillContext);
+                break;
+              case SearchMode.research:
+                // リサーチ
+                await _sendWithResearch(text, chatProvider, searchProvider, systemPrompt, skillContext);
+                break;
+              default:
+                // 検索なし
+                chatProvider.sendMessage(text, projectSystemPrompt: systemPrompt, skillContext: skillContext);
             }
           },
           onStop: () {
             chatProvider.stopGeneration();
           },
-          onSearchTap: () {
-            setState(() => _isSearchEnabled = !_isSearchEnabled);
+          onSearchModeChanged: (mode) {
+            setState(() => _searchMode = mode);
           },
           onSkillTap: () {
             Navigator.push(
@@ -489,5 +500,72 @@ $searchContext
 上記のWeb検索結果を参考に、質問に回答してください。''';
     
     chatProvider.sendMessage(enhancedPrompt, projectSystemPrompt: systemPrompt, skillContext: skillContext);
+  }
+
+  /// 詳細検索（DeepSearch）でメッセージを送信
+  Future<void> _sendWithDeepSearch(
+    String query,
+    ChatProvider chatProvider,
+    SearchProvider searchProvider,
+    String systemPrompt,
+    String skillContext,
+  ) async {
+    // DeepSearchを実行
+    final result = await searchProvider.deepSearch(query);
+    
+    if (result == null || result.searchResults.isEmpty) {
+      // 検索結果なしの場合はそのまま送信
+      chatProvider.sendMessage(query, projectSystemPrompt: systemPrompt, skillContext: skillContext);
+      return;
+    }
+
+    // DeepSearch結果をコンテキストに追加
+    final enhancedPrompt = '''$query
+
+【詳細検索結果】
+${result.summary}
+
+参照ソース:
+${result.sources.asMap().entries.map((e) => '${e.key + 1}. ${e.value}').join('\n')}
+
+上記の検索結果を参考に、質問に回答してください。''';
+    
+    chatProvider.sendMessage(enhancedPrompt, projectSystemPrompt: systemPrompt, skillContext: skillContext);
+  }
+
+  /// リサーチでメッセージを送信
+  Future<void> _sendWithResearch(
+    String query,
+    ChatProvider chatProvider,
+    SearchProvider searchProvider,
+    String systemPrompt,
+    String skillContext,
+  ) async {
+    // リサーチを実行（ストリームで進捗を受け取る）
+    String finalAnswer = '';
+    
+    await for (final progress in searchProvider.research(query)) {
+      // 進捗をデバッグログに出力（UIにも表示できる）
+      debugPrint('Research progress: ${progress.phase} - ${progress.message}');
+      
+      if (progress.phase == 'result') {
+        finalAnswer = progress.message;
+      }
+    }
+
+    if (finalAnswer.isEmpty) {
+      // リサーチ結果なしの場合はそのまま送信
+      chatProvider.sendMessage(query, projectSystemPrompt: systemPrompt, skillContext: skillContext);
+      return;
+    }
+
+    // リサーチ結果をそのまま表示（検索結果は内部で統合済み）
+    // ユーザーメッセージを追加
+    chatProvider.addUserMessage(query);
+    
+    // アシスタントメッセージとしてリサーチ結果を追加
+    chatProvider.addAssistantMessage('''【リサーチ結果】
+
+$finalAnswer''');
   }
 }

@@ -226,6 +226,49 @@ class ChatProvider extends ChangeNotifier {
     }
   }
 
+  /// ユーザーメッセージを直接追加（リサーチ結果表示用）
+  void addUserMessage(String content) {
+    if (_currentConversation == null) return;
+
+    final userMessage = Message(
+      role: MessageRole.user,
+      content: content.trim(),
+    );
+
+    // タイトルの自動生成（最初のメッセージの場合）
+    String title = _currentConversation!.title;
+    if (_currentConversation!.messages.isEmpty) {
+      title = content.length > 30 ? '${content.substring(0, 30)}...' : content;
+    }
+
+    _currentConversation = _currentConversation!.copyWith(
+      title: title,
+      messages: [..._currentConversation!.messages, userMessage],
+      updatedAt: DateTime.now(),
+    );
+    _updateConversationInList();
+    _saveConversations();
+    notifyListeners();
+  }
+
+  /// アシスタントメッセージを直接追加（リサーチ結果表示用）
+  void addAssistantMessage(String content) {
+    if (_currentConversation == null) return;
+
+    final assistantMessage = Message(
+      role: MessageRole.assistant,
+      content: content.trim(),
+    );
+
+    _currentConversation = _currentConversation!.copyWith(
+      messages: [..._currentConversation!.messages, assistantMessage],
+      updatedAt: DateTime.now(),
+    );
+    _updateConversationInList();
+    _saveConversations();
+    notifyListeners();
+  }
+
   void stopGeneration() {
     _streamSubscription?.cancel();
     _isLoading = false;

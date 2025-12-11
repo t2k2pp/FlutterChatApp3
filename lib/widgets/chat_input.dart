@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../theme/app_theme.dart';
+import '../../providers/search_provider.dart';
 
 class ChatInput extends StatefulWidget {
   final Function(String) onSend;
   final bool isLoading;
   final VoidCallback? onStop;
   final VoidCallback? onSkillTap;
-  final VoidCallback? onSearchTap;
-  final bool isSearchEnabled;
+  final SearchMode searchMode;
+  final Function(SearchMode)? onSearchModeChanged;
 
   const ChatInput({
     super.key,
@@ -16,8 +17,8 @@ class ChatInput extends StatefulWidget {
     this.isLoading = false,
     this.onStop,
     this.onSkillTap,
-    this.onSearchTap,
-    this.isSearchEnabled = false,
+    this.searchMode = SearchMode.simple,
+    this.onSearchModeChanged,
   });
 
   @override
@@ -59,6 +60,80 @@ class _ChatInputState extends State<ChatInput> {
   void setText(String text) {
     _controller.text = text;
     _focusNode.requestFocus();
+  }
+
+  void _showSearchModeMenu() {
+    final RenderBox button = context.findRenderObject() as RenderBox;
+    final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final RelativeRect position = RelativeRect.fromRect(
+      Rect.fromPoints(
+        button.localToGlobal(Offset(16, button.size.height - 120), ancestor: overlay),
+        button.localToGlobal(button.size.bottomLeft(Offset.zero), ancestor: overlay),
+      ),
+      Offset.zero & overlay.size,
+    );
+
+    showMenu<SearchMode?>(
+      context: context,
+      position: position,
+      color: AppTheme.darkCard,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: AppTheme.darkBorder),
+      ),
+      items: [
+        _buildSearchMenuItem(null, 'オフ', Icons.search_off_rounded),
+        _buildSearchMenuItem(SearchMode.simple, '簡易検索', Icons.search_rounded),
+        _buildSearchMenuItem(SearchMode.deep, '詳細検索', Icons.manage_search_rounded),
+        _buildSearchMenuItem(SearchMode.research, 'リサーチ', Icons.science_rounded),
+      ],
+    ).then((mode) {
+      if (mode != null || mode == null) {
+        widget.onSearchModeChanged?.call(mode ?? SearchMode.simple);
+      }
+    });
+  }
+
+  PopupMenuItem<SearchMode?> _buildSearchMenuItem(SearchMode? mode, String label, IconData icon) {
+    final isSelected = (mode == null && widget.searchMode == SearchMode.simple && widget.onSearchModeChanged == null) 
+        || widget.searchMode == mode;
+    
+    Color color;
+    switch (mode) {
+      case SearchMode.simple:
+        color = Colors.blue;
+        break;
+      case SearchMode.deep:
+        color = Colors.green;
+        break;
+      case SearchMode.research:
+        color = Colors.purple;
+        break;
+      case null:
+      default:
+        color = AppTheme.textMuted;
+    }
+
+    return PopupMenuItem<SearchMode?>(
+      value: mode,
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: isSelected ? color : AppTheme.textSecondary),
+          const SizedBox(width: 12),
+          Text(
+            label,
+            style: TextStyle(
+              color: isSelected ? color : AppTheme.textPrimary,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+            ),
+          ),
+          if (isSelected) ...[
+            const Spacer(),
+            Icon(Icons.check, size: 16, color: color),
+          ],
+        ],
+      ),
+    );
   }
 
   @override
@@ -146,12 +221,7 @@ class _ChatInputState extends State<ChatInput> {
               const SizedBox(height: 12),
               Row(
                 children: [
-                  _buildActionChip(
-                    icon: Icons.search_rounded,
-                    label: 'Web検索',
-                    isActive: widget.isSearchEnabled,
-                    onTap: widget.onSearchTap,
-                  ),
+                  _buildSearchModeChip(),
                   const SizedBox(width: 8),
                   _buildActionChip(
                     icon: Icons.psychology_alt_rounded,
@@ -160,6 +230,73 @@ class _ChatInputState extends State<ChatInput> {
                   ),
                 ],
               ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchModeChip() {
+    String label;
+    IconData icon;
+    Color color;
+    bool isActive = true;
+
+    switch (widget.searchMode) {
+      case SearchMode.simple:
+        label = '簡易検索';
+        icon = Icons.search_rounded;
+        color = Colors.blue;
+        break;
+      case SearchMode.deep:
+        label = '詳細検索';
+        icon = Icons.manage_search_rounded;
+        color = Colors.green;
+        break;
+      case SearchMode.research:
+        label = 'リサーチ';
+        icon = Icons.science_rounded;
+        color = Colors.purple;
+        break;
+      default:
+        label = 'Web検索';
+        icon = Icons.search_off_rounded;
+        color = AppTheme.textMuted;
+        isActive = false;
+    }
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: _showSearchModeMenu,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: isActive 
+                ? color.withValues(alpha: 0.2)
+                : AppTheme.darkCard,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: isActive ? color : AppTheme.darkBorder,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 16, color: isActive ? color : AppTheme.textSecondary),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isActive ? color : AppTheme.textSecondary,
+                  fontSize: 12,
+                  fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(Icons.arrow_drop_down, size: 16, color: isActive ? color : AppTheme.textSecondary),
             ],
           ),
         ),
