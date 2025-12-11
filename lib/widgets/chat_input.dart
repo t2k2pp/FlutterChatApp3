@@ -152,70 +152,61 @@ class _ChatInputState extends State<ChatInput> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // テキスト入力
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: AppTheme.darkCard,
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(
-                          color: _focusNode.hasFocus 
-                              ? AppTheme.primaryColor.withValues(alpha: 0.5) 
-                              : AppTheme.darkBorder,
-                        ),
-                        boxShadow: _focusNode.hasFocus
-                            ? [
-                                BoxShadow(
-                                  color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                                  blurRadius: 12,
-                                  spreadRadius: 2,
-                                ),
-                              ]
-                            : null,
+              // テキスト入力（全幅）
+              Container(
+                decoration: BoxDecoration(
+                  color: AppTheme.darkCard,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: _focusNode.hasFocus 
+                        ? AppTheme.primaryColor.withValues(alpha: 0.5) 
+                        : AppTheme.darkBorder,
+                  ),
+                  boxShadow: _focusNode.hasFocus
+                      ? [
+                          BoxShadow(
+                            color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                            blurRadius: 12,
+                            spreadRadius: 2,
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Focus(
+                  onFocusChange: (hasFocus) {
+                    setState(() {});
+                  },
+                  child: TextField(
+                    controller: _controller,
+                    focusNode: _focusNode,
+                    maxLines: 5,
+                    minLines: 1,
+                    textInputAction: TextInputAction.newline,
+                    keyboardType: TextInputType.multiline,
+                    style: const TextStyle(
+                      color: AppTheme.textPrimary,
+                      fontSize: 15,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'メッセージを入力...',
+                      hintStyle: TextStyle(
+                        color: AppTheme.textMuted,
                       ),
-                      child: Focus(
-                        onFocusChange: (hasFocus) {
-                          setState(() {});
-                        },
-                        child: TextField(
-                          controller: _controller,
-                          focusNode: _focusNode,
-                          maxLines: 5,
-                          minLines: 1,
-                          textInputAction: TextInputAction.newline,
-                          keyboardType: TextInputType.multiline,
-                          style: const TextStyle(
-                            color: AppTheme.textPrimary,
-                            fontSize: 15,
-                          ),
-                          decoration: InputDecoration(
-                            hintText: 'メッセージを入力...',
-                            hintStyle: TextStyle(
-                              color: AppTheme.textMuted,
-                            ),
-                            border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 14,
-                            ),
-                          ),
-                          onSubmitted: (_) {
-                            if (!HardwareKeyboard.instance.isShiftPressed) {
-                              _handleSubmit();
-                            }
-                          },
-                        ),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 14,
                       ),
                     ),
+                    onSubmitted: (_) {
+                      if (!HardwareKeyboard.instance.isShiftPressed) {
+                        _handleSubmit();
+                      }
+                    },
                   ),
-                  const SizedBox(width: 12),
-                  _buildSendButton(),
-                ],
+                ),
               ),
-              // ボタン行
+              // ボタン行（左：機能ボタン、右：送信ボタン）
               const SizedBox(height: 12),
               Row(
                 children: [
@@ -226,6 +217,8 @@ class _ChatInputState extends State<ChatInput> {
                     label: 'スキル',
                     onTap: widget.onSkillTap,
                   ),
+                  const Spacer(),
+                  _buildSendButton(),
                 ],
               ),
             ],
