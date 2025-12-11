@@ -379,9 +379,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                         Switch(
                           value: searchProvider.agenticConfig.enabled,
-                          onChanged: (v) => searchProvider.updateAgenticConfig(
-                            searchProvider.agenticConfig.copyWith(enabled: v),
-                          ),
+                          onChanged: (v) {
+                            searchProvider.updateAgenticConfig(
+                              searchProvider.agenticConfig.copyWith(enabled: v),
+                            );
+                            // ChatProviderにも反映
+                            context.read<ChatProvider>().setAgenticSearchEnabled(v);
+                          },
                           activeColor: Colors.amber.shade300,
                         ),
                       ],

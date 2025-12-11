@@ -58,6 +58,7 @@ class SearchProvider extends ChangeNotifier {
   bool get deepSearchEnabled => _deepSearchEnabled;
   String get searxngUrl => _config.baseUrl;
   SearchMode get searchMode => _searchMode;
+  SearxngService? get searxngService => _searxng;
 
   SearchProvider() {
     _initialize();

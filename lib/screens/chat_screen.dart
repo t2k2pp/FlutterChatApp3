@@ -26,6 +26,28 @@ class _ChatScreenState extends State<ChatScreen> {
   SearchMode _searchMode = SearchMode.simple;
 
   @override
+  void initState() {
+    super.initState();
+    // プロバイダー間の連携を初期化
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeAgenticSearch();
+    });
+  }
+
+  void _initializeAgenticSearch() {
+    final searchProvider = context.read<SearchProvider>();
+    final chatProvider = context.read<ChatProvider>();
+    
+    // SearchProviderからSearxngServiceをChatProviderに設定
+    if (searchProvider.searxngService != null) {
+      chatProvider.setSearxngService(searchProvider.searxngService);
+    }
+    
+    // AgenticSearchConfigの設定をChatProviderに反映
+    chatProvider.setAgenticSearchEnabled(searchProvider.agenticConfig.enabled);
+  }
+
+  @override
   void dispose() {
     _scrollController.dispose();
     super.dispose();

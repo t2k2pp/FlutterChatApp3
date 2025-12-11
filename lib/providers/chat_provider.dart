@@ -5,11 +5,15 @@ import '../models/message.dart';
 import '../services/llm_service.dart';
 import '../services/llm_provider.dart';
 import '../services/storage_service.dart';
+import '../services/agentic_search_service.dart';
+import '../services/searxng_service.dart';
 
 class ChatProvider extends ChangeNotifier {
   final StorageService _storage = StorageService();
   LlmService _llmService = LlmService();
   LlmProvider? _llmProvider;
+  AgenticSearchService? _agenticSearchService;
+  SearxngService? _searxngService;
   
   List<Conversation> _conversations = [];
   Conversation? _currentConversation;
@@ -19,6 +23,7 @@ class ChatProvider extends ChangeNotifier {
   String _systemPrompt = '';
   String _apiUrl = 'http://192.168.1.24:11437/v1';
   StreamSubscription<String>? _streamSubscription;
+  bool _agenticSearchEnabled = false;
 
   // Getters
   List<Conversation> get conversations => _conversations;
@@ -28,6 +33,7 @@ class ChatProvider extends ChangeNotifier {
   String? get error => _error;
   String get systemPrompt => _systemPrompt;
   String get apiUrl => _apiUrl;
+  bool get agenticSearchEnabled => _agenticSearchEnabled;
 
   ChatProvider() {
     _initialize();
@@ -67,7 +73,31 @@ class ChatProvider extends ChangeNotifier {
   /// 外部からLlmProviderを設定
   void setLlmProvider(LlmProvider? provider) {
     _llmProvider = provider;
+    _updateAgenticSearchService();
     notifyListeners();
+  }
+
+  /// SearxngServiceを設定（SearchProviderから呼び出し）
+  void setSearxngService(SearxngService? service) {
+    _searxngService = service;
+    _updateAgenticSearchService();
+  }
+
+  /// Agentic検索の有効/無効を設定
+  void setAgenticSearchEnabled(bool enabled) {
+    _agenticSearchEnabled = enabled;
+    notifyListeners();
+  }
+
+  /// AgenticSearchServiceを更新
+  void _updateAgenticSearchService() {
+    if (_llmProvider != null && _searxngService != null) {
+      _agenticSearchService = AgenticSearchService(
+        searxng: _searxngService!,
+        llm: _llmProvider!,
+        config: AgenticSearchConfig(enabled: _agenticSearchEnabled),
+      );
+    }
   }
 
   Future<void> testConnection() async {
@@ -115,10 +145,34 @@ class ChatProvider extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
+    // Agentic Web検索: 必要に応じて自動でWeb検索を実行
+    String enhancedContent = content.trim();
+    String? agenticSearchContext;
+    
+    if (_agenticSearchEnabled && _agenticSearchService != null) {
+      try {
+        debugPrint('Agentic Search: Analyzing if search is needed...');
+        final searchResult = await _agenticSearchService!.analyzeAndSearch(
+          _currentConversation!.messages,
+          content.trim(),
+        );
+        
+        if (searchResult.searchPerformed && searchResult.enhancedContext != null) {
+          debugPrint('Agentic Search: Search performed - ${searchResult.searchReason}');
+          agenticSearchContext = searchResult.enhancedContext;
+        } else {
+          debugPrint('Agentic Search: No search needed');
+        }
+      } catch (e) {
+        debugPrint('Agentic Search error: $e');
+        // エラー時は通常のメッセージ処理を続行
+      }
+    }
+
     // ユーザーメッセージを追加
     final userMessage = Message(
       role: MessageRole.user,
-      content: content.trim(),
+      content: enhancedContent,
     );
 
     final messages = [..._currentConversation!.messages, userMessage];
@@ -163,6 +217,18 @@ class ChatProvider extends ChangeNotifier {
         effectiveSystemPrompt = effectiveSystemPrompt.isNotEmpty
             ? '$effectiveSystemPrompt\n\n$skillContext'
             : skillContext!;
+      }
+
+      // Agentic検索結果をシステムプロンプトに追加
+      if (agenticSearchContext != null && agenticSearchContext.isNotEmpty) {
+        final searchInstruction = '''
+【Web検索結果】
+以下は自動的に収集された最新のWeb情報です。回答の参考にしてください。
+
+$agenticSearchContext''';
+        effectiveSystemPrompt = effectiveSystemPrompt.isNotEmpty
+            ? '$effectiveSystemPrompt\n\n$searchInstruction'
+            : searchInstruction;
       }
       
       if (effectiveSystemPrompt.isNotEmpty) {
