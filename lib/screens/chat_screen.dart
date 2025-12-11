@@ -5,6 +5,7 @@ import '../../providers/chat_provider.dart';
 import '../../providers/project_provider.dart';
 import '../../providers/search_provider.dart';
 import '../../providers/skill_provider.dart';
+import '../../providers/llm_provider_manager.dart';
 import '../../services/export_service.dart';
 import '../../services/searxng_service.dart';
 import '../../theme/app_theme.dart';
@@ -37,14 +38,27 @@ class _ChatScreenState extends State<ChatScreen> {
   void _initializeAgenticSearch() {
     final searchProvider = context.read<SearchProvider>();
     final chatProvider = context.read<ChatProvider>();
+    final llmManager = context.read<LlmProviderManager>();
+    
+    // LLMProviderManagerから現在のLLMProviderをChatProviderに設定
+    if (llmManager.currentProvider != null) {
+      chatProvider.setLlmProvider(llmManager.currentProvider);
+      debugPrint('Agentic Init: LLM Provider set');
+    } else {
+      debugPrint('Agentic Init: LLM Provider is null');
+    }
     
     // SearchProviderからSearxngServiceをChatProviderに設定
     if (searchProvider.searxngService != null) {
       chatProvider.setSearxngService(searchProvider.searxngService);
+      debugPrint('Agentic Init: SearxNG Service set');
+    } else {
+      debugPrint('Agentic Init: SearxNG Service is null');
     }
     
     // AgenticSearchConfigの設定をChatProviderに反映
     chatProvider.setAgenticSearchEnabled(searchProvider.agenticConfig.enabled);
+    debugPrint('Agentic Init: Enabled=${searchProvider.agenticConfig.enabled}');
   }
 
   @override

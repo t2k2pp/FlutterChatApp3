@@ -149,6 +149,9 @@ class ChatProvider extends ChangeNotifier {
     String enhancedContent = content.trim();
     String? agenticSearchContext;
     
+    // デバッグ: Agentic検索の状態を確認
+    debugPrint('Agentic Search Status: enabled=$_agenticSearchEnabled, service=${_agenticSearchService != null}, llm=${_llmProvider != null}, searxng=${_searxngService != null}');
+    
     if (_agenticSearchEnabled && _agenticSearchService != null) {
       try {
         debugPrint('Agentic Search: Analyzing if search is needed...');
@@ -161,12 +164,14 @@ class ChatProvider extends ChangeNotifier {
           debugPrint('Agentic Search: Search performed - ${searchResult.searchReason}');
           agenticSearchContext = searchResult.enhancedContext;
         } else {
-          debugPrint('Agentic Search: No search needed');
+          debugPrint('Agentic Search: No search needed (performed=${searchResult.searchPerformed})');
         }
       } catch (e) {
         debugPrint('Agentic Search error: $e');
         // エラー時は通常のメッセージ処理を続行
       }
+    } else {
+      debugPrint('Agentic Search: Skipped (enabled=$_agenticSearchEnabled, service=${_agenticSearchService != null})');
     }
 
     // ユーザーメッセージを追加
