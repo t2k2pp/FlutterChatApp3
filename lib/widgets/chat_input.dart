@@ -17,7 +17,7 @@ class ChatInput extends StatefulWidget {
     this.isLoading = false,
     this.onStop,
     this.onSkillTap,
-    this.searchMode = SearchMode.simple,
+    this.searchMode = SearchMode.off,
     this.onSearchModeChanged,
   });
 
@@ -73,7 +73,7 @@ class _ChatInputState extends State<ChatInput> {
       Offset.zero & overlay.size,
     );
 
-    showMenu<SearchMode?>(
+    showMenu<SearchMode>(
       context: context,
       position: position,
       color: AppTheme.darkCard,
@@ -82,21 +82,20 @@ class _ChatInputState extends State<ChatInput> {
         side: BorderSide(color: AppTheme.darkBorder),
       ),
       items: [
-        _buildSearchMenuItem(null, 'オフ', Icons.search_off_rounded),
+        _buildSearchMenuItem(SearchMode.off, 'オフ', Icons.search_off_rounded),
         _buildSearchMenuItem(SearchMode.simple, '簡易検索', Icons.search_rounded),
         _buildSearchMenuItem(SearchMode.deep, '詳細検索', Icons.manage_search_rounded),
         _buildSearchMenuItem(SearchMode.research, 'リサーチ', Icons.science_rounded),
       ],
     ).then((mode) {
-      if (mode != null || mode == null) {
-        widget.onSearchModeChanged?.call(mode ?? SearchMode.simple);
+      if (mode != null) {
+        widget.onSearchModeChanged?.call(mode);
       }
     });
   }
 
-  PopupMenuItem<SearchMode?> _buildSearchMenuItem(SearchMode? mode, String label, IconData icon) {
-    final isSelected = (mode == null && widget.searchMode == SearchMode.simple && widget.onSearchModeChanged == null) 
-        || widget.searchMode == mode;
+  PopupMenuItem<SearchMode> _buildSearchMenuItem(SearchMode mode, String label, IconData icon) {
+    final isSelected = widget.searchMode == mode;
     
     Color color;
     switch (mode) {
@@ -109,12 +108,11 @@ class _ChatInputState extends State<ChatInput> {
       case SearchMode.research:
         color = Colors.purple;
         break;
-      case null:
-      default:
+      case SearchMode.off:
         color = AppTheme.textMuted;
     }
 
-    return PopupMenuItem<SearchMode?>(
+    return PopupMenuItem<SearchMode>(
       value: mode,
       child: Row(
         children: [

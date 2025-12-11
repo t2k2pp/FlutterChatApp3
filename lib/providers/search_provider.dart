@@ -9,6 +9,7 @@ import '../services/storage_service.dart';
 
 /// 検索モード
 enum SearchMode {
+  off,       // オフ（検索なし）
   simple,    // 簡易検索
   deep,      // 詳細検索
   research,  // リサーチ（Agentic Research）

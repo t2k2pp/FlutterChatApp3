@@ -23,7 +23,7 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   final ScrollController _scrollController = ScrollController();
-  SearchMode _searchMode = SearchMode.simple;
+  SearchMode _searchMode = SearchMode.off;
 
   @override
   void initState() {
@@ -456,6 +456,10 @@ class _ChatScreenState extends State<ChatScreen> {
             final skillContext = skillProvider.getActiveSkillsContext();
             
             switch (_searchMode) {
+              case SearchMode.off:
+                // 検索なし
+                chatProvider.sendMessage(text, projectSystemPrompt: systemPrompt, skillContext: skillContext);
+                break;
               case SearchMode.simple:
                 // 簡易検索
                 await _sendWithSearch(text, chatProvider, searchProvider, systemPrompt, skillContext);
@@ -468,9 +472,6 @@ class _ChatScreenState extends State<ChatScreen> {
                 // リサーチ
                 await _sendWithResearch(text, chatProvider, searchProvider, systemPrompt, skillContext);
                 break;
-              default:
-                // 検索なし
-                chatProvider.sendMessage(text, projectSystemPrompt: systemPrompt, skillContext: skillContext);
             }
           },
           onStop: () {
