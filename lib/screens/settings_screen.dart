@@ -280,17 +280,121 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onChanged: (v) => searchProvider.setSearxngUrl(v),
               ),
               const SizedBox(height: 12),
-              // DeepSearch
+              // 詳細検索（DeepSearch）
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('DeepSearch', style: TextStyle(color: AppTheme.textPrimary)),
+                  const Text('詳細検索 (Deep Search)', style: TextStyle(color: AppTheme.textPrimary)),
                   Switch(
                     value: searchProvider.deepSearchEnabled,
                     onChanged: (v) => searchProvider.setDeepSearchEnabled(v),
                     activeColor: Colors.blue,
                   ),
                 ],
+              ),
+              const SizedBox(height: 16),
+              // リサーチ設定
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppTheme.darkBackground,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppTheme.darkBorder),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.science, size: 18, color: Colors.purple.shade300),
+                        const SizedBox(width: 8),
+                        Text(
+                          'リサーチ機能 (Agentic Research)',
+                          style: TextStyle(color: Colors.purple.shade300, fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    _buildInfoRow(
+                      label: '最大ループ回数',
+                      value: '${searchProvider.researchConfig.maxIterations}回',
+                      trailing: SizedBox(
+                        width: 120,
+                        child: Slider(
+                          value: searchProvider.researchConfig.maxIterations.toDouble(),
+                          min: 1,
+                          max: 5,
+                          divisions: 4,
+                          onChanged: (v) => searchProvider.updateResearchConfig(
+                            searchProvider.researchConfig.copyWith(maxIterations: v.round()),
+                          ),
+                          activeColor: Colors.purple.shade300,
+                        ),
+                      ),
+                    ),
+                    _buildInfoRow(
+                      label: '確信度閾値',
+                      value: '${searchProvider.researchConfig.confidenceThreshold}%',
+                      trailing: SizedBox(
+                        width: 120,
+                        child: Slider(
+                          value: searchProvider.researchConfig.confidenceThreshold.toDouble(),
+                          min: 50,
+                          max: 100,
+                          divisions: 10,
+                          onChanged: (v) => searchProvider.updateResearchConfig(
+                            searchProvider.researchConfig.copyWith(confidenceThreshold: v.round()),
+                          ),
+                          activeColor: Colors.purple.shade300,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              // Agentic Web検索設定
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppTheme.darkBackground,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppTheme.darkBorder),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.auto_awesome, size: 18, color: Colors.amber.shade300),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Agentic Web検索',
+                              style: TextStyle(color: Colors.amber.shade300, fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                        Switch(
+                          value: searchProvider.agenticConfig.enabled,
+                          onChanged: (v) => searchProvider.updateAgenticConfig(
+                            searchProvider.agenticConfig.copyWith(enabled: v),
+                          ),
+                          activeColor: Colors.amber.shade300,
+                        ),
+                      ],
+                    ),
+                    if (searchProvider.agenticConfig.enabled) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        'AIが必要と判断した際に自動でWeb検索を実行します',
+                        style: TextStyle(color: AppTheme.textMuted, fontSize: 11),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ],
           ],
