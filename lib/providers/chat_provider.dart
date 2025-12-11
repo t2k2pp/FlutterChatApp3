@@ -235,8 +235,16 @@ class ChatProvider extends ChangeNotifier {
       if (agenticSearchContext != null && agenticSearchContext.isNotEmpty) {
         final searchInstruction = '''
 【Web検索結果】
-以下は自動的に収集された最新のWeb情報です。回答の参考にしてください。
+以下はユーザーの質問に関連して自動収集されたWeb情報です。
 
+＜重要な指示＞
+1. 検索結果を鵜呑みにせず、ユーザーの質問に関連する情報のみを取捨選択してください
+2. 複数のトピックが混在している場合は、それぞれ明確に分けて説明してください
+3. 無関係な情報は無視してください
+4. 情報の信頼性を考慮し、矛盾がある場合は複数の見解があることを示してください
+5. 検索結果に十分な情報がない場合は、その旨を正直に伝えてください
+
+＜検索結果＞
 $agenticSearchContext''';
         effectiveSystemPrompt = effectiveSystemPrompt.isNotEmpty
             ? '$effectiveSystemPrompt\n\n$searchInstruction'
