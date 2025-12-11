@@ -469,6 +469,16 @@ class _ChatScreenState extends State<ChatScreen> {
             final systemPrompt = projectProvider.currentSystemPrompt;
             final skillContext = skillProvider.getActiveSkillsContext();
             
+            // Agentic検索用にプロバイダーを動的に設定
+            final llmManager = context.read<LlmProviderManager>();
+            if (llmManager.currentProvider != null) {
+              chatProvider.setLlmProvider(llmManager.currentProvider);
+            }
+            if (searchProvider.searxngService != null) {
+              chatProvider.setSearxngService(searchProvider.searxngService);
+            }
+            chatProvider.setAgenticSearchEnabled(searchProvider.agenticConfig.enabled);
+            
             switch (_searchMode) {
               case SearchMode.off:
                 // 検索なし
