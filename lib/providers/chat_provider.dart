@@ -162,9 +162,16 @@ class ChatProvider extends ChangeNotifier {
         
         if (searchResult.searchPerformed && searchResult.enhancedContext != null) {
           debugPrint('Agentic Search: Search performed - ${searchResult.searchReason}');
+          debugPrint('Agentic Search: Results count - ${searchResult.results.length}');
+          debugPrint('Agentic Search: Context length - ${searchResult.enhancedContext!.length} chars');
+          if (searchResult.enhancedContext!.length < 500) {
+            debugPrint('Agentic Search: Context - ${searchResult.enhancedContext}');
+          } else {
+            debugPrint('Agentic Search: Context (first 500) - ${searchResult.enhancedContext!.substring(0, 500)}...');
+          }
           agenticSearchContext = searchResult.enhancedContext;
         } else {
-          debugPrint('Agentic Search: No search needed (performed=${searchResult.searchPerformed})');
+          debugPrint('Agentic Search: No search needed (performed=${searchResult.searchPerformed}, context=${searchResult.enhancedContext != null})');
         }
       } catch (e) {
         debugPrint('Agentic Search error: $e');

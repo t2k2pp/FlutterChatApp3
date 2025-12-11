@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import '../models/message.dart';
 import '../services/searxng_service.dart';
 import 'llm_provider.dart';
@@ -94,6 +95,7 @@ class AgenticSearchService {
 
     // Step 2: 検索クエリを生成
     final searchQuery = needsSearch.suggestedQuery ?? userMessage;
+    debugPrint('Agentic Search: Query = "$searchQuery"');
 
     // Step 3: 検索を実行
     try {
@@ -135,21 +137,14 @@ class AgenticSearchService {
       return _SearchNeedAnalysis(needed: false);
     }
 
-    // 明らかに検索が必要なケース（時事的なキーワード）
-    if (_containsTimelyKeywords(userMessage)) {
-      return _SearchNeedAnalysis(
-        needed: true,
-        reason: '最新情報が必要と判断',
-        suggestedQuery: userMessage,
-      );
-    }
+    // 時事的なキーワードを含む場合でも、LLMに適切な検索クエリを生成させる
 
     try {
       // LLMに判断を委ねる
       final response = await _llm.getChatCompletion([
         Message(
           role: MessageRole.system,
-          content: '''あなたは検索の必要性を判断する専門家です。
+          content: '''あなたは検索の必要性を判断し、最適な検索キーワードを生成する専門家です。
 
 ユーザーのメッセージに対して、Web検索が必要かどうかを判断してください。
 
@@ -166,9 +161,17 @@ class AgenticSearchService {
 - 「検索せずに答えて」と言われた場合
 - 一般的な知識で回答できる場合
 
+【検索キーワードの生成ルール】
+検索が必要な場合、queryには「ユーザーの意図を満たすための効果的な検索キーワード」を設定してください：
+- ユーザーの質問文をそのまま使わず、検索エンジンに適したキーワードに変換する
+- 具体的で明確なキーワードを使う
+- 例: 「今日のニュースを教えて」→「2024年12月 日本 主要ニュース 最新」
+- 例: 「Pythonでファイルを読み込む方法」→「Python ファイル読み込み 方法 サンプルコード」
+- 例: 「最近話題のAI技術」→「2024年 AI技術 トレンド 最新」
+
 【回答フォーマット】
 検索が必要な場合：
-{"needsSearch": true, "query": "検索キーワード"}
+{"needsSearch": true, "query": "効果的な検索キーワード"}
 
 検索が不要な場合：
 {"needsSearch": false}
